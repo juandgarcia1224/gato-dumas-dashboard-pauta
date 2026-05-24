@@ -61,10 +61,19 @@ npm run dev      # http://localhost:3000
 | `npm run sheets:setup` | Crea/valida las 8 hojas y siembra `00_Config`. |
 | `META_ACCESS_TOKEN="…" npm run meta:update -- --range this_month --updatedBy Juan` | Actualiza Meta (token temporal, Forma A). |
 | `npm run meta:update:manual -- --range this_month --updatedBy Paola` | Actualiza Meta pidiendo el token sin mostrarlo (Forma B). |
+| `npm run pacing:recompute -- 2026-05` | Recalcula el pacing desde `01_MediaPlan` + gasto cargado, **sin token**. |
 
 Rangos válidos: `today`, `yesterday`, `last_7d`, `this_month` (default), o `--dateStart/--dateStop`.
 
 > **Token temporal:** el token de Meta NO se guarda en `.env.local`; se entrega por corrida. Ver [`docs/OPERACION_ACTUALIZACION.md`](docs/OPERACION_ACTUALIZACION.md).
+
+## Ámbitos y modos
+- **Consolidado / Gato Colombia / Gato Bucaramanga:** filtro de cuenta que recalcula KPIs, pacing, alertas y tablas de forma independiente. Gato Colombia = Bogotá + Barranquilla (`act_299121374587072`); Gato Bucaramanga = Cinco Gatos (`act_248616958293893`).
+- **Modo Interno / Cliente:** toggle en el header (sin rutas separadas). Cliente oculta tablas operativas, KPIs técnicos y recomendaciones; conserva resumen, KPIs principales, pacing y alertas.
+- **Pacing:** Gato Colombia tiene plan mensual real ($30,5M mayo). **Gato Bucaramanga muestra "Sin plan mensual"** hasta cargar su `planned_budget` real (no se inventa). Ver [`docs/MEDIAPLAN_GATO_DUMAS.md`](docs/MEDIAPLAN_GATO_DUMAS.md).
+
+## Despliegue
+Vercel sirve el dashboard **leyendo Google Sheets**; **no** llama a Meta ni guarda token. La actualización de datos se corre local con token temporal. Guía: [`docs/DEPLOY_VERCEL.md`](docs/DEPLOY_VERCEL.md) · operación: [`docs/OPERACION_DASHBOARD_GATO_DUMAS.md`](docs/OPERACION_DASHBOARD_GATO_DUMAS.md).
 
 ---
 
