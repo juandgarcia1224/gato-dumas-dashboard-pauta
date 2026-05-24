@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Estilos base PROVISIONALES. El sistema visual final lo define Cloud Design.
+  Mantener neutro: solo tokens funcionales, sin identidad de marca cerrada.
+*/
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+* {
+  box-sizing: border-box;
+}
