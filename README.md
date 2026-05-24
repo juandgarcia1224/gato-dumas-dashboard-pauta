@@ -57,26 +57,34 @@ npm run dev      # http://localhost:3000
 |---|---|
 | `npm run dev` | Dashboard en desarrollo (localhost:3000). |
 | `npm run build` / `npm run start` | Build y arranque de producción. |
-| `npm run validate:env` | Verifica que las variables de entorno estén completas. |
+| `npm run validate:env` | Valida la base (Google + cuentas). Pasa aunque falte el token. |
 | `npm run sheets:setup` | Crea/valida las 8 hojas y siembra `00_Config`. |
-| `npm run meta:update -- --range this_month --updatedBy Juan` | Actualiza datos de Meta. |
-| `npm run meta:update -- --range last_7d --updatedBy Paola` | Últimos 7 días. |
-| `npm run meta:update -- --dateStart 2026-05-01 --dateStop 2026-05-24 --updatedBy Juan` | Rango custom. |
+| `META_ACCESS_TOKEN="…" npm run meta:update -- --range this_month --updatedBy Juan` | Actualiza Meta (token temporal, Forma A). |
+| `npm run meta:update:manual -- --range this_month --updatedBy Paola` | Actualiza Meta pidiendo el token sin mostrarlo (Forma B). |
 
 Rangos válidos: `today`, `yesterday`, `last_7d`, `this_month` (default), o `--dateStart/--dateStop`.
 
+> **Token temporal:** el token de Meta NO se guarda en `.env.local`; se entrega por corrida. Ver [`docs/OPERACION_ACTUALIZACION.md`](docs/OPERACION_ACTUALIZACION.md).
+
 ---
 
-## Variables que debe llenar Juan (`.env.local`)
+## Variables en `.env.local`
+
+**Persistentes (se guardan):**
 
 | Variable | Descripción |
 |---|---|
-| `META_ACCESS_TOKEN` | Token temporal de Meta con permiso `ads_read`. |
-| `META_AD_ACCOUNT_GATO_COLOMBIA` | Ya prellenado: `act_299121374587072`. |
-| `META_AD_ACCOUNT_GATO_BUCARAMANGA` | Ya prellenado: `act_248616958293893`. |
-| `GOOGLE_SHEET_ID` | ID del Google Sheet base de datos. |
+| `GOOGLE_SHEET_ID` | Sheet PROD: `1Mbh7nkLQttvZOGzMZtQpsMlk3sGeG3R854KjyTomF-k` (prellenado). |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Email del service account. |
 | `GOOGLE_PRIVATE_KEY` | Clave privada del service account (con `\n`). |
+| `META_AD_ACCOUNT_GATO_COLOMBIA` | Prellenado: `act_299121374587072`. |
+| `META_AD_ACCOUNT_GATO_BUCARAMANGA` | Prellenado: `act_248616958293893`. |
+
+**Temporal (NO se guarda):**
+
+| Variable | Descripción |
+|---|---|
+| `META_ACCESS_TOKEN` | Token de Meta (`ads_read`). Vacío en `.env.local`; se entrega por corrida. |
 
 Detalle paso a paso en [`docs/SETUP.md`](docs/SETUP.md) y seguridad en
 [`docs/SEGURIDAD_TOKENS.md`](docs/SEGURIDAD_TOKENS.md).

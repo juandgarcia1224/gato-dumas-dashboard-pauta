@@ -104,7 +104,9 @@ export function requireMetaEnv(): MetaEnv & { token: string } {
   const meta = getMetaEnv();
   if (!meta.token) {
     throw new Error(
-      "META_ACCESS_TOKEN no configurado. Defínelo en .env.local (ver docs/SEGURIDAD_TOKENS.md).",
+      'META_ACCESS_TOKEN no configurado. El token es TEMPORAL: entrégalo por corrida → ' +
+        'META_ACCESS_TOKEN="…" npm run meta:update -- … (o usa: npm run meta:update:manual). ' +
+        "No lo guardes en .env.local. Ver docs/SEGURIDAD_TOKENS.md.",
     );
   }
   const anyAccount = Object.values(meta.accounts).some(Boolean);

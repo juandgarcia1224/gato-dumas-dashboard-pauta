@@ -184,10 +184,12 @@ export function buildDashboardPayload(input: {
     });
   }
   if (!envStatus.metaToken) {
+    // El token de Meta es temporal y se entrega por corrida (no vive aquí).
+    // No es un error del dashboard: el dashboard lee de Sheets, no del token.
     notices.push({
-      level: "warning",
+      level: "info",
       code: "token_missing",
-      message: "Token de Meta no configurado (META_ACCESS_TOKEN).",
+      message: "Meta se actualiza manualmente con token temporal (no se guarda).",
     });
   }
   for (const g of ACCOUNT_GROUPS) {

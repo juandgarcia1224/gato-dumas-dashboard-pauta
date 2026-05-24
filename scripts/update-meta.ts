@@ -1,4 +1,5 @@
 import "./load-env";
+import { pathToFileURL } from "node:url";
 import { requireMetaEnv, requireGoogleEnv } from "../src/lib/config/env";
 import {
   ACCOUNT_GROUPS,
@@ -150,8 +151,8 @@ function campaignRowToRecord(r: CampaignRow): CampaignRecord {
   };
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
+export async function runUpdate(argv: string[]) {
+  const args = parseArgs(argv);
   const updatedBy = args.updatedBy ?? "desconocido";
   const meta = requireMetaEnv();
   requireGoogleEnv();
@@ -278,7 +279,10 @@ async function main() {
   if (okResults.length === 0) process.exit(1);
 }
 
-main().catch((err) => {
-  console.error("\n❌ Error fatal en meta:update:", err.message ?? err);
-  process.exit(1);
-});
+// Auto-ejecuta solo si se corre directo (no al importarse desde meta:update:manual).
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runUpdate(process.argv.slice(2)).catch((err) => {
+    console.error("\n❌ Error fatal en meta:update:", err.message ?? err);
+    process.exit(1);
+  });
+}

@@ -10,7 +10,8 @@
     "lint": "next lint",
     "validate:env": "tsx scripts/validate-env.ts",
     "sheets:setup": "tsx scripts/setup-sheets.ts",
-    "meta:update": "tsx scripts/update-meta.ts"
+    "meta:update": "tsx scripts/update-meta.ts",
+    "meta:update:manual": "tsx scripts/update-meta-manual.ts"
   },
   "dependencies": {
     "googleapis": "^144.0.0",

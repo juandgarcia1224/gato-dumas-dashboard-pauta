@@ -427,17 +427,21 @@ function buildHeader(payload: DashboardPayload, connected: boolean) {
     lastUpdate = { label: formatDateTime(lu.finished_at), status };
   }
 
+  // El token de Meta es temporal (se entrega por corrida): NO determina el
+  // estado de conexión del dashboard, que lee de Google Sheets.
   let connection = { label: "Pendiente de sincronizar", status: "warn" as Severity };
   const hasReadError = payload.status.notices.some((n) => n.code === "read_error");
   const partial = lu?.perAccount.some((p) => p.status !== "ok");
-  if (!payload.status.metaReady) {
-    connection = { label: "Meta Ads · token no configurado", status: "warn" };
-  } else if (hasReadError) {
+  if (hasReadError) {
     connection = { label: "Sin conexión con Google Sheets", status: "crit" };
+  } else if (!payload.status.sheetsReady) {
+    connection = { label: "Google Sheets no configurado", status: "warn" };
   } else if (partial) {
     connection = { label: "Sincronización parcial · 1 de 2 cuentas", status: "warn" };
   } else if (connected) {
-    connection = { label: "Conectado · Meta Ads", status: "ok" };
+    connection = { label: "Datos cargados · Meta Ads", status: "ok" };
+  } else {
+    connection = { label: "Sin datos · pendiente de sincronizar", status: "warn" };
   }
 
   return {
@@ -454,7 +458,7 @@ const BANNER_META: Record<
   string,
   { title: string; icon: string }
 > = {
-  token_missing: { title: "Token de Meta Ads no configurado", icon: "link-2" },
+  token_missing: { title: "Actualización manual de Meta", icon: "info" },
   account_missing: { title: "Cuenta publicitaria sin configurar", icon: "link-2" },
   sheet_missing: { title: "Sheet no configurado", icon: "database" },
   read_error: { title: "No fue posible leer Google Sheets", icon: "cloud-off" },
