@@ -605,6 +605,10 @@ body::before {
 .account-card + .account-card {
   border-left: 1px solid var(--hairline);
 }
+.account-card.active {
+  background: var(--brand-teal-50);
+  box-shadow: inset 3px 0 0 var(--brand-teal);
+}
 .account-card .ac-head {
   display: flex;
   align-items: flex-start;

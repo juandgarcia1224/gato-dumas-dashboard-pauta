@@ -19,10 +19,10 @@ function StatusBadge({ status, label }: { status: AccountVM["status"]; label: st
   );
 }
 
-function AccountCard({ account }: { account: AccountVM }) {
+function AccountCard({ account, active }: { account: AccountVM; active: boolean }) {
   const meterTone: Severity = account.pacing.tone;
   return (
-    <div className="account-card">
+    <div className={"account-card" + (active ? " active" : "")}>
       <div className="ac-head">
         <div className="ac-title">
           <span
@@ -80,19 +80,30 @@ function AccountCard({ account }: { account: AccountVM }) {
   );
 }
 
-export default function AccountSummary({ accounts }: { accounts: AccountVM[] }) {
+export default function AccountSummary({
+  accounts,
+  activeAccount = "all",
+}: {
+  accounts: AccountVM[];
+  activeAccount?: string;
+}) {
+  const focused = activeAccount !== "all";
   return (
     <section className="section">
       <div className="section-head">
         <div className="title-wrap">
           <span className="h-rule" />
           <h3>Resumen por cuenta</h3>
-          <span className="sub">2 cuentas · Meta Ads</span>
+          <span className="sub">
+            {focused
+              ? "Cuenta en foco resaltada · ambas siempre visibles para comparar"
+              : "Gato Colombia y Gato Bucaramanga · Meta Ads"}
+          </span>
         </div>
       </div>
       <div className="accounts">
         {accounts.map((a) => (
-          <AccountCard key={a.id} account={a} />
+          <AccountCard key={a.id} account={a} active={a.id === activeAccount} />
         ))}
       </div>
     </section>

@@ -84,6 +84,13 @@ export default function DashboardShell() {
 
   const loadedRange = payload?.lastUpdate?.date_preset_or_range ?? "";
 
+  const scopeLabel =
+    account === "gato_colombia"
+      ? "Gato Colombia · Bogotá + Barranquilla"
+      : account === "gato_bucaramanga"
+        ? "Gato Bucaramanga · Cinco Gatos"
+        : "Consolidado · Gato Colombia + Gato Bucaramanga";
+
   return (
     <div className="app">
       <DashboardHeader
@@ -128,11 +135,11 @@ export default function DashboardShell() {
           <div className="section-heading">
             <span className="h-rule" />
             <h3 className="h-section">Resumen ejecutivo · KPIs</h3>
-            <span className="sub">Métricas principales</span>
+            <span className="sub">{scopeLabel}</span>
           </div>
           <KpiGrid items={vm.kpis} />
 
-          <AccountSummary accounts={vm.accounts} />
+          <AccountSummary accounts={vm.accounts} activeAccount={account} />
 
           <PacingChart pacing={vm.pacing} />
 

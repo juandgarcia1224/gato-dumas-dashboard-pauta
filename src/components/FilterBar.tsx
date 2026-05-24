@@ -51,7 +51,7 @@ export default function FilterBar({
 }) {
   const activeRange = normalizeRange(loadedRange);
   const chips: AccountOption[] = [
-    { key: "all", label: "Todas", configured: true },
+    { key: "all", label: "Consolidado", configured: true },
     ...accounts,
   ];
 
