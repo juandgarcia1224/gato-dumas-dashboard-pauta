@@ -143,6 +143,16 @@ function PacingBody({ pacing }: { pacing: PacingVM }) {
           </div>
         </div>
 
+        {pacing.note && (
+          <div
+            className="badge warn"
+            style={{ alignSelf: "flex-start", whiteSpace: "normal", lineHeight: 1.4 }}
+          >
+            <span className="dot" />
+            {pacing.note}
+          </div>
+        )}
+
         {pacing.interpolated && (
           <div style={{ fontSize: 11, color: "var(--muted)" }}>
             <span className="example-stamp">Curva diaria: proyección lineal</span>

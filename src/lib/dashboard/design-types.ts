@@ -53,6 +53,8 @@ export interface PacingVM {
   deltaToday: string; // "−21 pts"
   deltaSeverity: Severity;
   statusToday: string;
+  /** Aviso de cobertura parcial (cuentas sin plan excluidas del cálculo). */
+  note?: string;
 }
 
 export interface AlertVM {

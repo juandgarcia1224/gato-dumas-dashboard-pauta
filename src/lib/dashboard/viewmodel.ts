@@ -150,7 +150,7 @@ function buildKpis(
       id: "pct",
       label: "% consumido",
       value: pct !== null ? `${formatDecimal(pct, 1)}%` : NUMBER_EMPTY,
-      ctx: pct !== null ? "Gasto real vs plan" : "Pacing sin calcular",
+      ctx: pct !== null ? "Del plan cargado (cuentas con presupuesto)" : "Pacing sin calcular",
       status: pct !== null ? "ok" : "empty",
       placeholder: pct === null,
     },
@@ -307,6 +307,16 @@ function buildPacing(payload: DashboardPayload): PacingVM | null {
     clamp((spentPct * i) / (N - 1)),
   );
 
+  // Aviso de cobertura: cuentas presentes en el rango pero SIN plan mensual
+  // (quedan excluidas del cálculo de pacing; no se inventa su presupuesto).
+  const sinPlan = payload.pacing
+    .filter((p) => !(p.planned_monthly_budget && p.planned_monthly_budget > 0))
+    .map((p) => getAccountGroup(String(p.account_group))?.label ?? String(p.account_group));
+  const note =
+    sinPlan.length > 0
+      ? `${sinPlan.join(", ")} sin plan mensual: excluida(s) del pacing.`
+      : undefined;
+
   const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
   return {
     hasPlan: true,
@@ -318,6 +328,7 @@ function buildPacing(payload: DashboardPayload): PacingVM | null {
     deltaToday: `${sign}${formatDecimal(Math.abs(delta), 0)} pts`,
     deltaSeverity,
     statusToday,
+    note,
   };
 }
 
