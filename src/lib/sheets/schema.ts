@@ -191,14 +191,17 @@ export function rowToArray(
 
 /** Convierte filas de Sheets (array de arrays con header) a objetos. */
 export function arrayToObjects(
-  values: string[][],
+  values: unknown[][],
 ): Record<string, string>[] {
   if (!values || values.length < 2) return [];
   const [header, ...rows] = values;
   return rows.map((r) => {
     const obj: Record<string, string> = {};
     header.forEach((h, i) => {
-      obj[h] = r[i] ?? "";
+      const v = r[i];
+      // Normaliza a string: con UNFORMATTED_VALUE los números llegan como
+      // number; String() usa punto decimal (locale-independiente).
+      obj[String(h)] = v === null || v === undefined ? "" : String(v);
     });
     return obj;
   });
