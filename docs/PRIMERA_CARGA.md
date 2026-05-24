@@ -44,6 +44,8 @@ npm run sheets:setup
 - Siembra `00_Config` solo si está vacía. **No borra datos manuales.**
 - `01_MediaPlan` queda lista para llenar (presupuestos del mes).
 - Si falla por permisos → comparte el Sheet como Editor con el service account.
+- Si falla con *"Google Sheets API ... is disabled"* → habilita la API una vez:
+  `console.cloud.google.com/apis/library/sheets.googleapis.com?project=<proyecto>` → Enable (espera 1–2 min).
 
 ## Paso 4 — Prueba pequeña (con token temporal)
 

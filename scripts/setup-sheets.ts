@@ -44,6 +44,23 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("\n❌ Error en setup-sheets:", err.message ?? err);
+  const msg = String(err?.message ?? err);
+  console.error("\n❌ Error en setup-sheets:", msg);
+
+  // Hints accionables para los errores de configuración más comunes.
+  if (/has not been used in project|api.*disabled|SERVICE_DISABLED/i.test(msg)) {
+    const m = msg.match(/project (\d+)/);
+    const proj = m ? m[1] : "tu-proyecto";
+    console.error(
+      "\n💡 La Google Sheets API no está habilitada en el proyecto del service account.\n" +
+        `   Habilítala aquí y reintenta (espera 1–2 min para que propague):\n` +
+        `   https://console.cloud.google.com/apis/library/sheets.googleapis.com?project=${proj}\n`,
+    );
+  } else if (/caller does not have permission|PERMISSION_DENIED|The caller/i.test(msg)) {
+    console.error(
+      "\n💡 El service account no tiene acceso al Sheet.\n" +
+        "   Comparte el Sheet (GOOGLE_SHEET_ID) como EDITOR con el GOOGLE_SERVICE_ACCOUNT_EMAIL.\n",
+    );
+  }
   process.exit(1);
 });

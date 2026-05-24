@@ -42,6 +42,12 @@ META_AD_ACCOUNT_GATO_BUCARAMANGA=act_248616958293893
 5. `GOOGLE_SHEET_ID` ya viene prellenado con el Sheet PROD
    `1Mbh7nkLQttvZOGzMZtQpsMlk3sGeG3R854KjyTomF-k` (DB_Dashboard_Gato_Dumas_Meta_Ads_PROD, owner cookmindsagency@gmail.com).
 6. **Comparte el Sheet PROD con el email del service account** con permiso de *Editor*.
+7. **Habilita la Google Sheets API** en el proyecto Cloud del service account (una sola vez):
+   `https://console.cloud.google.com/apis/library/sheets.googleapis.com?project=<TU_PROYECTO>`
+   → **Enable**. Espera 1–2 min a que propague. (Solo Sheets API; no hace falta Drive API.)
+
+> Service account actual del proyecto: `gato-dumas-dashboard-writer@cookminds-dashboards.iam.gserviceaccount.com`
+> (proyecto Cloud `cookminds-dashboards`). La key vive fuera del repo en `~/.secrets/cookminds/gato-dumas-dashboard/`.
 
 Ejemplo de `GOOGLE_PRIVATE_KEY` en `.env.local`:
 ```
@@ -83,6 +89,7 @@ npm run dev
 | Síntoma | Causa probable | Solución |
 |---|---|---|
 | `GOOGLE_PRIVATE_KEY` inválida | `\n` mal pegados | Mantén el valor entre comillas con `\n` literales. |
-| `The caller does not have permission` | Sheet no compartido | Comparte el Sheet con el email del service account. |
+| `Google Sheets API has not been used / is disabled` | Sheets API no habilitada en el proyecto Cloud | Habilítala: `console.cloud.google.com/apis/library/sheets.googleapis.com?project=<proyecto>` → Enable; espera 1–2 min. |
+| `The caller does not have permission` | Sheet no compartido | Comparte el Sheet como Editor con el email del service account. |
 | Meta `(#190) token expired` | Token caducó | Genera uno nuevo (ver SEGURIDAD_TOKENS.md). |
 | Dashboard dice "Sin datos" | No se ha corrido `meta:update` | Ejecuta la actualización. |
