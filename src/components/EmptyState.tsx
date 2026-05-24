@@ -1,25 +1,40 @@
-import { Inbox } from "lucide-react";
+import { Database, CloudOff, Link2, CheckCircle2 } from "lucide-react";
+
+type Kind = "no-data" | "error" | "token" | "sheet" | "ok";
+
+const ICONS: Record<Kind, React.ReactNode> = {
+  "no-data": <Database size={22} />,
+  error: <CloudOff size={22} />,
+  token: <Link2 size={22} />,
+  sheet: <Database size={22} />,
+  ok: <CheckCircle2 size={22} />,
+};
 
 /**
- * Estado vacío genérico. Se usa para: sin datos, no configurado, sin rango.
- * NUNCA mostrar datos inventados; en su lugar se muestra este estado.
+ * Estado vacío (Cloud Design UI_STATES). Vive dentro del cuerpo de una sección;
+ * la sección conserva su header. Nunca muestra datos inventados.
  */
 export default function EmptyState({
+  kind = "no-data",
   title,
-  message,
-  icon,
+  body,
+  action,
 }: {
+  kind?: Kind;
   title: string;
-  message?: string;
-  icon?: React.ReactNode;
+  body?: string;
+  action?: { label: string; onClick: () => void };
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
-      <div className="mb-3 text-gray-400">
-        {icon ?? <Inbox className="h-8 w-8" />}
-      </div>
-      <p className="text-sm font-medium text-gray-700">{title}</p>
-      {message && <p className="mt-1 max-w-md text-xs text-gray-500">{message}</p>}
+    <div className="empty-state">
+      <div className="es-icon">{ICONS[kind]}</div>
+      <p className="es-title">{title}</p>
+      {body && <p className="es-body">{body}</p>}
+      {action && (
+        <button className="btn ghost es-action" onClick={action.onClick}>
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }

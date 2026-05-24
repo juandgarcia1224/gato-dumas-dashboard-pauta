@@ -1,9 +1,9 @@
 import DashboardShell from "@/components/DashboardShell";
 
 /**
- * Ruta única de Fase 1. Estructura preparada para separar luego en
- * /dashboard/internal y /dashboard/client (ver docs/DESIGN_CONTRACT.md).
+ * Ruta única (Cloud Design). El modo Interno/Cliente se controla con un toggle
+ * en el header (data-mode en <html>), sin rutas separadas.
  */
 export default function Page() {
-  return <DashboardShell view="internal" />;
+  return <DashboardShell />;
 }

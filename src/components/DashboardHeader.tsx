@@ -1,36 +1,106 @@
-import { RefreshCw } from "lucide-react";
+"use client";
+
+import Image from "next/image";
+import { RefreshCw, Download } from "lucide-react";
+import type { HeaderVM, Severity } from "@/lib/dashboard/design-types";
+
+function dotClass(s: Severity): string {
+  return s === "ok" ? "" : s === "warn" ? "warn" : s === "crit" ? "crit" : "info";
+}
 
 /**
- * Encabezado del dashboard. Diseño PROVISIONAL (Cloud Design lo reemplazará).
+ * TopBar (Cloud Design §2.A). Logo institucional como imagen (no redibujado),
+ * marca, meta-pills de estado real y toggles Interno/Cliente + tema.
  */
 export default function DashboardHeader({
-  clientName,
+  header,
+  mode,
+  theme,
+  onModeChange,
+  onThemeChange,
   onRefresh,
-  loading,
+  refreshing,
 }: {
-  clientName: string;
+  header: HeaderVM;
+  mode: "interno" | "cliente";
+  theme: "light" | "dark";
+  onModeChange: (m: "interno" | "cliente") => void;
+  onThemeChange: (t: "light" | "dark") => void;
   onRefresh: () => void;
-  loading: boolean;
+  refreshing: boolean;
 }) {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">
-          {clientName} — Centro de Seguimiento Digital
-        </h1>
-        <p className="text-sm text-gray-500">Pauta digital · Meta Ads</p>
+    <header className="topbar">
+      <div className="brand-mark">
+        <Image
+          className="logo-img"
+          src="/assets/logo_gato_dumas.png"
+          alt="Instituto Gato Dumas"
+          width={56}
+          height={56}
+          priority
+        />
+        <div className="brand-id">
+          <div className="lvl-1">{header.subtitle}</div>
+          <div className="lvl-2">{header.brandName}</div>
+          <div className="eyebrow" style={{ marginTop: 4 }}>
+            {header.kicker}
+          </div>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-          Diseño base · provisional
-        </span>
+
+      <div className="topbar-meta">
+        <div className="meta-pill">
+          <div className="k">Última actualización</div>
+          <div className="v">
+            <span className={`status-dot ${dotClass(header.lastUpdate.status)}`} />
+            <span>{header.lastUpdate.label}</span>
+          </div>
+        </div>
+        <div className="meta-pill">
+          <div className="k">Estado de conexión</div>
+          <div className="v">
+            <span className={`status-dot ${dotClass(header.connection.status)}`} />
+            <span>{header.connection.label}</span>
+          </div>
+        </div>
+
+        <div className="filter-group" style={{ gap: 8 }}>
+          <div className="seg" role="radiogroup" aria-label="Modo de vista">
+            <button
+              className={mode === "interno" ? "active" : ""}
+              role="radio"
+              aria-checked={mode === "interno"}
+              onClick={() => onModeChange("interno")}
+            >
+              Interno
+            </button>
+            <button
+              className={mode === "cliente" ? "active" : ""}
+              role="radio"
+              aria-checked={mode === "cliente"}
+              onClick={() => onModeChange("cliente")}
+            >
+              Cliente
+            </button>
+          </div>
+          <button
+            className="btn ghost"
+            title="Cambiar tema"
+            onClick={() => onThemeChange(theme === "light" ? "dark" : "light")}
+          >
+            {theme === "light" ? "Oscuro" : "Claro"}
+          </button>
+        </div>
+
         <button
+          className="btn primary"
           onClick={onRefresh}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          disabled={refreshing}
+          title="Recarga la vista desde /api/dashboard. La sincronización con Meta se ejecuta por terminal (npm run meta:update)."
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Actualizar vista
+          <RefreshCw className={`ico ${refreshing ? "spin" : ""}`} size={14} />
+          {refreshing ? "Actualizando…" : "Actualizar datos"}
         </button>
       </div>
     </header>

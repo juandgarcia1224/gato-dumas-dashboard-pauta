@@ -1,93 +1,92 @@
-import { AlertTriangle, Info, OctagonAlert } from "lucide-react";
-import type { AlertView, Notice } from "@/lib/dashboard/contract";
-import { getAccountGroup } from "@/lib/config/clients";
+import { CheckCircle2 } from "lucide-react";
+import type { AlertVM } from "@/lib/dashboard/design-types";
 
-const LEVEL_STYLE: Record<string, { box: string; icon: React.ReactNode }> = {
-  critical: {
-    box: "border-red-200 bg-red-50 text-red-800",
-    icon: <OctagonAlert className="h-4 w-4 text-red-600" />,
-  },
-  warning: {
-    box: "border-amber-200 bg-amber-50 text-amber-800",
-    icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
-  },
-  info: {
-    box: "border-blue-200 bg-blue-50 text-blue-800",
-    icon: <Info className="h-4 w-4 text-blue-600" />,
-  },
-};
-
-function levelStyle(level: string) {
-  return LEVEL_STYLE[level] ?? LEVEL_STYLE.info;
-}
-
-/** Panel de alertas operativas + avisos de estado/configuración (notices). */
+/**
+ * Panel de alertas operativas (Cloud Design §7). Alertas reales del payload.
+ * La recomendación (`reco`) lleva `internal-only` → oculta en modo cliente,
+ * pero la alerta entera SIEMPRE se muestra (regla transversal UI_STATES §4).
+ */
 export default function AlertsPanel({
   alerts,
-  notices,
+  counts,
 }: {
-  alerts: AlertView[];
-  notices: Notice[];
+  alerts: AlertVM[];
+  counts: { crit: number; warn: number; info: number };
 }) {
-  const ordered = [...alerts].sort((a, b) => rank(a.level) - rank(b.level));
-
   return (
-    <div className="space-y-3">
-      {notices.length > 0 && (
-        <div className="space-y-2">
-          {notices.map((nt, i) => {
-            const st = levelStyle(nt.level);
-            return (
-              <div
-                key={`${nt.code}-${i}`}
-                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${st.box}`}
-              >
-                {st.icon}
-                <span>{nt.message}</span>
-              </div>
-            );
-          })}
+    <section className="section">
+      <div className="section-head">
+        <div className="title-wrap">
+          <span className="h-rule" />
+          <h3>Alertas operativas</h3>
+          <span className="sub">{alerts.length} señales detectadas</span>
         </div>
-      )}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {counts.crit > 0 && (
+            <span className="badge crit">
+              <span className="dot" />
+              {counts.crit} {counts.crit === 1 ? "crítica" : "críticas"}
+            </span>
+          )}
+          {counts.warn > 0 && (
+            <span className="badge warn">
+              <span className="dot" />
+              {counts.warn} atención
+            </span>
+          )}
+          {counts.info > 0 && (
+            <span className="badge info">
+              <span className="dot" />
+              {counts.info} aviso
+            </span>
+          )}
+        </div>
+      </div>
 
-      {ordered.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white px-3 py-4 text-sm text-gray-500">
-          Sin alertas operativas en el rango/filtro actual.
+      {alerts.length === 0 ? (
+        <div className="section-body">
+          <div className="empty-state">
+            <div className="es-icon" style={{ color: "var(--ok)" }}>
+              <CheckCircle2 size={22} />
+            </div>
+            <p className="es-title">Todo bajo control</p>
+            <p className="es-body">No hay alertas operativas en este rango.</p>
+          </div>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {ordered.map((a, i) => {
-            const st = levelStyle(a.level);
-            return (
-              <li
-                key={`${a.entity_name}-${a.metric}-${i}`}
-                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${st.box}`}
-              >
-                {st.icon}
-                <div>
-                  <p className="font-medium">{a.message}</p>
-                  <p className="text-xs opacity-80">
-                    {getAccountGroup(String(a.account_group))?.label ??
-                      a.account_group}{" "}
-                    · {a.entity_type}: {a.entity_name}
-                  </p>
-                  {a.recommended_action && (
-                    <p className="mt-0.5 text-xs opacity-90">
-                      → {a.recommended_action}
-                    </p>
-                  )}
+        <div className="alerts-list">
+          {alerts.map((a, i) => (
+            <div className={"alert-row sev-" + a.sev} key={i}>
+              <div className={"sev " + a.sev}>{a.label}</div>
+              <div>
+                <div className="what">{a.what}</div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--muted)",
+                    marginTop: 2,
+                    letterSpacing: ".06em",
+                  }}
+                >
+                  {a.account}
                 </div>
-              </li>
-            );
-          })}
-        </ul>
+              </div>
+              <div className="target">
+                {a.target}
+                <small>{a.targetType}</small>
+              </div>
+              <div className="metric">
+                {a.metric}
+                <small>{a.metricLabel}</small>
+              </div>
+              <div className="reco internal-only">{a.reco}</div>
+              <div className="action">
+                <span className="example-stamp">—</span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
-    </div>
+    </section>
   );
-}
-
-function rank(level: string): number {
-  if (level === "critical") return 0;
-  if (level === "warning") return 1;
-  return 2;
 }

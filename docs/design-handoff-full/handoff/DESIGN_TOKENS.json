@@ -1,0 +1,319 @@
+{
+  "$meta": {
+    "project": "Gato Dumas — Centro de Seguimiento Digital",
+    "owner": "CookMinds",
+    "version": "0.1.0",
+    "notes": "Tokens canónicos. Fuente de verdad para la implementación. Derivados del manual de marca de Instituto Gato Dumas (Raleway + Oswald; institucionales R40 G128 B141 y R121 G129 B132). NO sustituir por defaults de Tailwind o shadcn."
+  },
+
+  "colors": {
+    "background":     "#F4F1EB",
+    "backgroundDeep": "#ECE8E0",
+    "paper":          "#FBF9F5",
+    "surface":        "#FFFFFF",
+    "surfaceMuted":   "#ECE8E0",
+    "surfaceInverse": "#15181B",
+
+    "primary":        "#28808D",
+    "primaryHover":   "#1F6772",
+    "primaryMuted":   "#B7D4D9",
+    "primarySoft":    "#ECF3F4",
+
+    "secondary":      "#798184",
+    "secondaryMuted": "#D2D5D6",
+
+    "textPrimary":    "#15181B",
+    "textSecondary":  "#2C3033",
+    "textMuted":      "#6E7378",
+    "textDisabled":   "#A4A8AA",
+    "textOnInverse":  "#FBF9F5",
+
+    "border":         "rgba(21, 24, 27, 0.10)",
+    "borderStrong":   "rgba(21, 24, 27, 0.22)",
+    "divider":        "rgba(21, 24, 27, 0.10)",
+
+    "success":        "#3F7D5C",
+    "successSoft":    "#E6EFE9",
+    "warning":        "#B8862B",
+    "warningSoft":    "#F4EBD6",
+    "danger":         "#B23A48",
+    "dangerSoft":     "#F4DBDF",
+    "info":           "#28808D",
+    "infoSoft":       "#ECF3F4",
+
+    "dark": {
+      "background":     "#0E1113",
+      "backgroundDeep": "#07090B",
+      "paper":          "#14181B",
+      "surface":        "#181C20",
+      "surfaceMuted":   "#1F2429",
+      "primary":        "#6FB6BF",
+      "primaryHover":   "#43909A",
+      "textPrimary":    "#F2EFE8",
+      "textSecondary":  "#D8D4CB",
+      "textMuted":      "#9AA0A4",
+      "textDisabled":   "#6B7074",
+      "border":         "rgba(255, 255, 255, 0.08)",
+      "borderStrong":   "rgba(255, 255, 255, 0.18)"
+    }
+  },
+
+  "typography": {
+    "fontFamily": {
+      "sans":    "'Raleway', system-ui, -apple-system, 'Segoe UI', sans-serif",
+      "display": "'Oswald', 'Raleway', system-ui, sans-serif",
+      "mono":    "'JetBrains Mono', ui-monospace, Menlo, monospace"
+    },
+    "scale": {
+      "displayXL":  { "font": "'Oswald'", "weight": 500, "size": "48px", "lineHeight": "1.0",  "tracking": "0.005em" },
+      "displayL":   { "font": "'Oswald'", "weight": 500, "size": "32px", "lineHeight": "1.0",  "tracking": "0.005em" },
+      "displayM":   { "font": "'Oswald'", "weight": 500, "size": "22px", "lineHeight": "1.1",  "tracking": "0.005em" },
+      "displayS":   { "font": "'Oswald'", "weight": 500, "size": "17px", "lineHeight": "1.1",  "tracking": "0.005em" },
+
+      "h1":         { "font": "'Raleway'", "weight": 700, "size": "22px", "lineHeight": "1.15", "tracking": "-0.01em" },
+      "h2":         { "font": "'Raleway'", "weight": 700, "size": "18px", "lineHeight": "1.2",  "tracking": "-0.005em" },
+      "h3":         { "font": "'Raleway'", "weight": 700, "size": "14px", "lineHeight": "1.3",  "tracking": "0.005em" },
+
+      "body":       { "font": "'Raleway'", "weight": 400, "size": "14px", "lineHeight": "1.45", "tracking": "0" },
+      "bodyStrong": { "font": "'Raleway'", "weight": 600, "size": "14px", "lineHeight": "1.45", "tracking": "0" },
+      "small":      { "font": "'Raleway'", "weight": 400, "size": "12px", "lineHeight": "1.45", "tracking": "0.01em" },
+      "smallStrong":{ "font": "'Raleway'", "weight": 600, "size": "12px", "lineHeight": "1.45", "tracking": "0.01em" },
+      "caption":    { "font": "'Raleway'", "weight": 500, "size": "11px", "lineHeight": "1.4",  "tracking": "0.02em" },
+
+      "eyebrow":    { "font": "'Raleway'", "weight": 700, "size": "10.5px", "lineHeight": "1.2", "tracking": "0.18em", "textTransform": "uppercase" },
+      "label":      { "font": "'Raleway'", "weight": 700, "size": "10px",   "lineHeight": "1.2", "tracking": "0.16em", "textTransform": "uppercase" },
+      "stamp":      { "font": "'JetBrains Mono'", "weight": 400, "size": "9.5px", "lineHeight": "1.2", "tracking": "0.16em", "textTransform": "uppercase" }
+    },
+    "googleFontsImport": "https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Oswald:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+  },
+
+  "spacing": {
+    "scale": {
+      "0":  "0",
+      "1":  "4px",
+      "2":  "8px",
+      "3":  "12px",
+      "4":  "16px",
+      "5":  "20px",
+      "6":  "24px",
+      "7":  "32px",
+      "8":  "40px",
+      "9":  "48px",
+      "10": "64px",
+      "11": "80px"
+    },
+    "sectionGap":       "24px",
+    "gridGap":          "20px",
+    "cardPad":          "20px",
+    "cardPadLg":        "28px",
+    "sectionHeadPadY":  "18px",
+    "sectionHeadPadX":  "22px",
+    "tableCellPadY":    "14px",
+    "tableCellPadX":    "14px",
+    "appPadX":          "36px",
+    "appPadY":          "28px",
+    "appMaxWidth":      "1480px"
+  },
+
+  "borderRadius": {
+    "none":  "0",
+    "sm":    "4px",
+    "md":    "8px",
+    "lg":    "14px",
+    "pill":  "100px",
+    "full":  "9999px",
+    "card":  "8px",
+    "input": "4px",
+    "badge": "100px"
+  },
+
+  "borderWidth": {
+    "hairline": "1px",
+    "thick":    "2px",
+    "accent":   "3px"
+  },
+
+  "shadows": {
+    "card":   "0 1px 0 rgba(21, 24, 27, 0.04), 0 1px 2px rgba(21, 24, 27, 0.04)",
+    "raised": "0 4px 12px rgba(21, 24, 27, 0.08)",
+    "panel":  "0 18px 50px rgba(21, 24, 27, 0.14)",
+    "focus":  "0 0 0 3px rgba(40, 128, 141, 0.25)",
+    "none":   "none"
+  },
+
+  "badges": {
+    "default": { "bg": "#ECE8E0", "fg": "#2C3033", "border": "transparent" },
+    "ok":      { "bg": "#E6EFE9", "fg": "#3F7D5C", "border": "transparent" },
+    "warn":    { "bg": "#F4EBD6", "fg": "#B8862B", "border": "transparent" },
+    "crit":    { "bg": "#F4DBDF", "fg": "#B23A48", "border": "transparent" },
+    "info":    { "bg": "#ECF3F4", "fg": "#1F6772", "border": "transparent" },
+    "ghost":   { "bg": "transparent", "fg": "#6E7378", "border": "rgba(21, 24, 27, 0.22)" },
+    "shape": {
+      "borderRadius": "100px",
+      "paddingY":     "3px",
+      "paddingX":     "9px",
+      "fontSize":     "10.5px",
+      "fontWeight":   600,
+      "letterSpacing":"0.05em",
+      "dotSize":      "6px"
+    }
+  },
+
+  "alertColors": {
+    "crit": {
+      "bar":   "#B23A48",
+      "label": "#B23A48",
+      "bg":    "#F4DBDF",
+      "icon":  "alert-triangle"
+    },
+    "warn": {
+      "bar":   "#B8862B",
+      "label": "#B8862B",
+      "bg":    "#F4EBD6",
+      "icon":  "alert-circle"
+    },
+    "info": {
+      "bar":   "#28808D",
+      "label": "#28808D",
+      "bg":    "#ECF3F4",
+      "icon":  "info"
+    },
+    "ok": {
+      "bar":   "#3F7D5C",
+      "label": "#3F7D5C",
+      "bg":    "#E6EFE9",
+      "icon":  "check-circle"
+    }
+  },
+
+  "tableStyles": {
+    "headerBg":      "#ECE8E0",
+    "headerFg":      "#6E7378",
+    "headerFontSize":"10px",
+    "headerTracking":"0.16em",
+    "headerWeight":  700,
+    "headerTextTransform": "uppercase",
+    "headerPaddingY":"12px",
+    "headerPaddingX":"14px",
+    "rowBorder":     "1px solid rgba(21, 24, 27, 0.10)",
+    "rowHoverBg":    "#ECE8E0",
+    "cellPaddingY":  "14px",
+    "cellPaddingX":  "14px",
+    "cellFontSize":  "12.5px",
+    "numCellFontFamily": "'Oswald'",
+    "numCellFontWeight": 500,
+    "numCellFontSize":   "13.5px",
+    "stripedBg":         "transparent",
+    "compact": {
+      "cellPaddingY": "10px",
+      "cellPaddingX": "12px"
+    }
+  },
+
+  "cardStyles": {
+    "default": {
+      "bg":           "#FFFFFF",
+      "border":       "1px solid rgba(21, 24, 27, 0.10)",
+      "borderRadius":"8px",
+      "shadow":       "0 1px 0 rgba(21, 24, 27, 0.04), 0 1px 2px rgba(21, 24, 27, 0.04)",
+      "padding":      "20px"
+    },
+    "kpi": {
+      "minHeight":    "138px",
+      "padding":      "18px 18px 16px",
+      "valueFontFamily": "'Oswald'",
+      "valueFontSize":   "32px",
+      "valueWeight":     500,
+      "labelTracking":   "0.18em",
+      "labelTextTransform": "uppercase",
+      "accentBarWidth":  "3px",
+      "accentBarPosition":"left"
+    },
+    "section": {
+      "headerBorderBottom": "1px solid rgba(21, 24, 27, 0.10)",
+      "headerPadding":      "18px 22px",
+      "bodyPadding":         "22px"
+    },
+    "inverse": {
+      "bg":  "#15181B",
+      "fg":  "#FBF9F5",
+      "dividerColor": "rgba(255, 255, 255, 0.12)"
+    }
+  },
+
+  "filters": {
+    "barBg":        "#FBF9F5",
+    "barPadY":      "14px",
+    "barPadX":      "20px",
+    "segmentTrackBg": "#ECE8E0",
+    "segmentActiveBg": "#FFFFFF",
+    "segmentActiveFg": "#15181B",
+    "segmentFg":       "#6E7378",
+    "chipBg":          "#FFFFFF",
+    "chipActiveBg":    "#15181B",
+    "chipActiveFg":    "#FBF9F5",
+    "chipRadius":      "100px"
+  },
+
+  "buttons": {
+    "primary":   { "bg": "#15181B", "fg": "#FBF9F5", "hoverBg": "#28808D", "border": "1px solid #15181B" },
+    "secondary": { "bg": "#FFFFFF", "fg": "#15181B", "hoverBorder": "#15181B", "border": "1px solid rgba(21, 24, 27, 0.22)" },
+    "ghost":     { "bg": "transparent", "fg": "#15181B", "border": "1px solid rgba(21, 24, 27, 0.10)" },
+    "shape": {
+      "radius":   "4px",
+      "padding":  "9px 14px",
+      "fontSize": "12.5px",
+      "fontWeight": 600,
+      "tracking": "0.02em"
+    }
+  },
+
+  "charts": {
+    "axis":           "#6E7378",
+    "axisLabel":      "9px",
+    "axisFontFamily": "'JetBrains Mono'",
+    "grid":           "rgba(21, 24, 27, 0.10)",
+    "expectedLine":   { "stroke": "#6E7378", "width": 1.3, "dash": "3 4" },
+    "realLine":       { "stroke": "#28808D", "width": 2.0, "dash": "0" },
+    "areaUnderReal":  "rgba(40, 128, 141, 0.08)",
+    "todayMarker":    { "stroke": "#15181B", "width": 1.0, "dash": "2 3" }
+  },
+
+  "motion": {
+    "transitionFast":  "120ms ease",
+    "transitionBase":  "180ms ease",
+    "transitionSlow":  "240ms cubic-bezier(0.2, 0.7, 0.2, 1)",
+    "easingInstitutional": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+  },
+
+  "breakpoints": {
+    "sm":  "480px",
+    "md":  "760px",
+    "lg":  "1180px",
+    "xl":  "1480px"
+  },
+
+  "z": {
+    "base":     0,
+    "raised":   10,
+    "sticky":   50,
+    "overlay":  80,
+    "panel":   100,
+    "toast":   200
+  },
+
+  "placeholders": {
+    "currencyEmpty": "$—",
+    "numberEmpty":   "—",
+    "percentEmpty":  "—",
+    "labels": [
+      "Sin datos cargados",
+      "Última actualización pendiente",
+      "Ejemplo visual",
+      "Datos de ejemplo",
+      "Placeholder",
+      "Token no configurado",
+      "Sheet no configurado"
+    ]
+  }
+}
