@@ -11,7 +11,8 @@
     "validate:env": "tsx scripts/validate-env.ts",
     "sheets:setup": "tsx scripts/setup-sheets.ts",
     "meta:update": "tsx scripts/update-meta.ts",
-    "meta:update:manual": "tsx scripts/update-meta-manual.ts"
+    "meta:update:manual": "tsx scripts/update-meta-manual.ts",
+    "pacing:recompute": "tsx scripts/recompute-pacing.ts"
   },
   "dependencies": {
     "googleapis": "^144.0.0",
