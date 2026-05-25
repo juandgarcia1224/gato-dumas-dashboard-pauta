@@ -24,7 +24,7 @@ type Theme = "light" | "dark";
 
 export default function DashboardShell() {
   const [view, setView] = useState("consolidado");
-  const [range, setRange] = useState("this_month");
+  const [range, setRange] = useState(""); // "" = el API elige el rango con datos
   const [dateStart, setDateStart] = useState<string>("");
   const [dateStop, setDateStop] = useState<string>("");
   const [mode, setMode] = useState<Mode>("interno");
@@ -72,7 +72,7 @@ export default function DashboardShell() {
     if (!initialized.current) return;
     const sp = new URLSearchParams();
     sp.set("view", view);
-    sp.set("range", range);
+    if (range) sp.set("range", range);
     if (range === "custom" && dateStart && dateStop) {
       sp.set("dateStart", dateStart);
       sp.set("dateStop", dateStop);
@@ -86,7 +86,8 @@ export default function DashboardShell() {
       else setLoading(true);
       setError(null);
       try {
-        const sp = new URLSearchParams({ view, range });
+        const sp = new URLSearchParams({ view });
+        if (range) sp.set("range", range);
         if (range === "custom" && dateStart && dateStop) {
           sp.set("dateStart", dateStart);
           sp.set("dateStop", dateStop);
@@ -113,14 +114,8 @@ export default function DashboardShell() {
   useEffect(() => {
     if (!payload || synced.current) return;
     synced.current = true;
-    const lk = payload.range.loaded?.key;
-    if (lk && lk !== range) {
-      if (lk === "custom" && payload.range.loaded) {
-        setDateStart(payload.range.loaded.dateStart);
-        setDateStop(payload.range.loaded.dateStop);
-      }
-      setRange(lk);
-    }
+    const rk = payload.range.requested.key;
+    if (rk && rk !== range) setRange(rk);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payload]);
 
@@ -164,7 +159,8 @@ export default function DashboardShell() {
         views={VIEWS}
         view={view}
         onViewChange={setView}
-        range={range}
+        months={vm?.availableMonths ?? []}
+        range={range || vm?.range.requestedKey || ""}
         dateStart={dateStart}
         dateStop={dateStop}
         onRangeChange={setRange}
@@ -182,16 +178,12 @@ export default function DashboardShell() {
         !vm.range.available ? (
           <RangeUnavailable
             vm={vm}
-            onShowLoaded={() => {
-              const lk = vm.range.loadedKey;
-              if (lk === "custom") {
-                setDateStart(vm.range.loadedStart ?? "");
-                setDateStop(vm.range.loadedStop ?? "");
-                setRange("custom");
-              } else if (lk) {
+            onShowLatest={() => {
+              const last = vm.availableMonths[vm.availableMonths.length - 1];
+              if (last) {
                 setDateStart("");
                 setDateStop("");
-                setRange(lk);
+                setRange(last.key);
               }
             }}
           />
@@ -211,7 +203,7 @@ export default function DashboardShell() {
               activeAccount={view === "bogota" || view === "barranquilla" ? "gato_colombia" : view}
             />
 
-            <PacingChart pacing={vm.pacing} />
+            <PacingChart pacing={vm.pacing} note={vm.pacingNote} />
 
             <AlertsPanel alerts={vm.alerts} counts={vm.alertCounts} />
 
@@ -243,11 +235,13 @@ export default function DashboardShell() {
 
 function RangeUnavailable({
   vm,
-  onShowLoaded,
+  onShowLatest,
 }: {
   vm: NonNullable<ReturnType<typeof buildDashboardVM>>;
-  onShowLoaded: () => void;
+  onShowLatest: () => void;
 }) {
+  const snapshot = vm.range.snapshotOnly;
+  const latest = vm.availableMonths[vm.availableMonths.length - 1];
   return (
     <section className="section">
       <div className="section-body">
@@ -255,16 +249,20 @@ function RangeUnavailable({
           <div className="es-icon" style={{ color: "var(--warn)" }}>
             <Clock size={22} />
           </div>
-          <p className="es-title">No hay datos cargados para “{vm.range.requestedLabel}”.</p>
+          <p className="es-title">
+            {snapshot
+              ? "Solo hay un snapshot agregado (sin histórico diario)"
+              : `No hay datos para “${vm.range.requestedLabel}”`}
+          </p>
           <p className="es-body">
-            El dashboard solo muestra datos del rango ya sincronizado
-            {vm.range.loadedLabel ? ` (${vm.range.loadedLabel})` : ""}. Para ver este
-            rango, sincroniza Meta Ads desde local y recarga.
+            {snapshot
+              ? "Para filtrar por mes/fecha necesitas cargar el histórico diario. Corre el comando desde local:"
+              : "No hay datos diarios cargados para este rango. Sincronízalo desde local o elige un mes con datos."}
           </p>
           <pre className="cmd-box">{vm.range.suggestedCommand}</pre>
-          {vm.range.loadedLabel && (
-            <button className="btn ghost es-action" onClick={onShowLoaded}>
-              Ver {vm.range.loadedLabel}
+          {latest && (
+            <button className="btn ghost es-action" onClick={onShowLatest}>
+              Ver {latest.label}
             </button>
           )}
         </div>

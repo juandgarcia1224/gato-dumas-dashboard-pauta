@@ -11,6 +11,7 @@
 
 import { getSheetId, getSheetsClient } from "./client";
 import {
+  arrayToObjects,
   HEADERS,
   rowToArray,
   SHEET_TABS,
@@ -90,6 +91,60 @@ export async function overwriteTab(
     requestBody: { values },
   });
   return rows.length;
+}
+
+/**
+ * UPSERT no destructivo: combina filas nuevas con las existentes por clave
+ * única (keyFields). Conserva el histórico (filas de otros días/meses),
+ * actualiza las que coincidan y agrega las nuevas. Escribe en chunks para
+ * soportar muchas filas. NO borra histórico.
+ */
+export async function upsertRows(
+  tab: SheetTab,
+  rows: object[],
+  keyFields: string[],
+): Promise<{ added: number; updated: number; total: number }> {
+  const sheets = getSheetsClient();
+  const spreadsheetId = getSheetId();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${tab}!A1:ZZ`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const existing = arrayToObjects((res.data.values ?? []) as unknown[][]);
+
+  const keyOf = (r: Record<string, unknown>) =>
+    keyFields.map((k) => String(r[k] ?? "")).join("§");
+
+  const map = new Map<string, Record<string, unknown>>();
+  for (const r of existing) map.set(keyOf(r), r);
+
+  let added = 0;
+  let updated = 0;
+  for (const r of rows as Record<string, unknown>[]) {
+    const k = keyOf(r);
+    if (map.has(k)) updated++;
+    else added++;
+    map.set(k, r);
+  }
+
+  const all = [...map.values()];
+
+  // Limpia datos (conserva header) y reescribe el conjunto combinado en chunks.
+  await sheets.spreadsheets.values.clear({ spreadsheetId, range: `${tab}!A2:ZZ` });
+  const CHUNK = 1000;
+  for (let i = 0; i < all.length; i += CHUNK) {
+    const chunk = all.slice(i, i + CHUNK).map((r) => rowToArray(tab, r));
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${tab}!A${2 + i}`,
+      valueInputOption: "RAW",
+      requestBody: { values: chunk },
+    });
+  }
+
+  return { added, updated, total: all.length };
 }
 
 /** Añade filas al final de una hoja (sin borrar las existentes). */

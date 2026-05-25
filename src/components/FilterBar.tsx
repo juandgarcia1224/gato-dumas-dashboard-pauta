@@ -27,6 +27,7 @@ export default function FilterBar({
   views,
   view,
   onViewChange,
+  months,
   range,
   dateStart,
   dateStop,
@@ -37,6 +38,7 @@ export default function FilterBar({
   views: ViewOption[];
   view: string;
   onViewChange: (v: string) => void;
+  months: { key: string; label: string }[];
   range: string;
   dateStart?: string;
   dateStop?: string;
@@ -120,6 +122,27 @@ export default function FilterBar({
             ))}
           </div>
         </div>
+
+        {months.length > 0 && (
+          <div className="filter-group">
+            <span className="lbl">Mes</span>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {months.map((m) => (
+                <button
+                  key={m.key}
+                  className={"account-chip" + (range === m.key ? " active" : "")}
+                  onClick={() => {
+                    setOpen(false);
+                    setErr(null);
+                    onRangeChange(m.key);
+                  }}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {open && (

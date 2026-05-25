@@ -39,19 +39,17 @@ export async function GET(req: Request) {
       SHEET_TABS.campaigns,
       SHEET_TABS.adsets,
       SHEET_TABS.ads,
-      SHEET_TABS.alerts,
-      SHEET_TABS.pacing,
       SHEET_TABS.updateLog,
       SHEET_TABS.mapping,
+      SHEET_TABS.mediaPlan,
     ]);
     const tabs: RawTabs = {
       campaigns: data[SHEET_TABS.campaigns] ?? [],
       adsets: data[SHEET_TABS.adsets] ?? [],
       ads: data[SHEET_TABS.ads] ?? [],
-      alerts: data[SHEET_TABS.alerts] ?? [],
-      pacing: data[SHEET_TABS.pacing] ?? [],
       updateLog: data[SHEET_TABS.updateLog] ?? [],
       mapping: data[SHEET_TABS.mapping] ?? [],
+      mediaPlan: data[SHEET_TABS.mediaPlan] ?? [],
     };
     return NextResponse.json(buildDashboardPayload({ ...common, tabs }));
   } catch (err) {

@@ -60,10 +60,13 @@ export async function fetchInsights(
   adAccountId: string,
   level: InsightLevel,
   range: DateRange,
+  daily = true,
 ): Promise<RawInsight[]> {
   return client.getAll<RawInsight>(`${adAccountId}/insights`, {
     level,
     fields: INSIGHT_FIELDS,
+    // time_increment=1 → una fila por día por entidad (histórico real).
+    ...(daily ? { time_increment: "1" } : {}),
     ...buildDateParams(range),
   });
 }

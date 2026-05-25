@@ -15,20 +15,11 @@ import {
 } from "../src/lib/meta/transform";
 import type {
   AccountPullResult,
-  CampaignRow,
   DatePreset,
   DateRange,
 } from "../src/lib/meta/types";
-import { appendRows, overwriteTab } from "../src/lib/sheets/writer";
-import { readTab } from "../src/lib/sheets/reader";
+import { appendRows, upsertRows } from "../src/lib/sheets/writer";
 import { SHEET_TABS } from "../src/lib/sheets/schema";
-import type { CampaignRecord } from "../src/lib/dashboard/metrics";
-import { buildCampaignAlerts } from "../src/lib/dashboard/alerts";
-import {
-  buildPacingAlerts,
-  computePacing,
-  plannedBudgetByAccount,
-} from "../src/lib/dashboard/pacing";
 
 // ---------- args ----------
 function parseArgs(argv: string[]): Record<string, string> {
@@ -124,40 +115,13 @@ async function pullAccount(
   }
 }
 
-function campaignRowToRecord(r: CampaignRow): CampaignRecord {
-  return {
-    account_group: r.account_group,
-    ad_account_id: r.ad_account_id,
-    ad_account_name: r.ad_account_name,
-    campaign_id: r.campaign_id,
-    campaign_name: r.campaign_name,
-    objective: r.objective,
-    buying_type: r.buying_type,
-    status: r.status,
-    effective_status: r.effective_status,
-    spend: r.spend,
-    impressions: r.impressions,
-    reach: r.reach,
-    frequency: r.frequency,
-    clicks: r.clicks,
-    ctr: r.ctr,
-    cpc: r.cpc,
-    cpm: r.cpm,
-    results_type: r.results_type,
-    results: r.results,
-    cost_per_result: r.cost_per_result,
-    date_start: r.date_start,
-    date_stop: r.date_stop,
-  };
-}
-
 export async function runUpdate(argv: string[]) {
   const args = parseArgs(argv);
   const updatedBy = args.updatedBy ?? "desconocido";
   const meta = requireMetaEnv();
   requireGoogleEnv();
 
-  const { range, label, month, asOf } = resolveRange(args);
+  const { range, label } = resolveRange(args);
   const startedAt = new Date().toISOString();
   const runId = `run_${Date.now()}`;
   const client = new MetaClient({
@@ -205,43 +169,22 @@ export async function runUpdate(argv: string[]) {
   const allAdsets = okResults.flatMap((r) => r.adsets);
   const allAds = okResults.flatMap((r) => r.ads);
 
-  // Escribir RAW solo si al menos una cuenta tuvo éxito (no borrar histórico si todo falló)
+  // UPSERT no destructivo (conserva histórico de otros días/meses).
+  // Clave única incluye date_start/date_stop → las filas diarias coexisten.
   if (okResults.length > 0) {
-    await overwriteTab(SHEET_TABS.campaigns, allCampaigns);
-    await overwriteTab(SHEET_TABS.adsets, allAdsets);
-    await overwriteTab(SHEET_TABS.ads, allAds);
-    console.log("\n✓ Hojas RAW actualizadas.");
-
-    // ----- Pacing -----
-    const records = allCampaigns.map(campaignRowToRecord);
-    const mediaPlan = await readTab(SHEET_TABS.mediaPlan);
-    const plannedByAccount = plannedBudgetByAccount(mediaPlan, month);
-    const actualByAccount: Record<string, number> = {};
-    for (const rec of records) {
-      actualByAccount[rec.account_group] =
-        (actualByAccount[rec.account_group] ?? 0) + rec.spend;
-    }
-    const pacing = computePacing({
-      month,
-      asOf,
-      plannedByAccount,
-      actualByAccount,
-    });
-    await overwriteTab(SHEET_TABS.pacing, pacing);
-    console.log("✓ Pacing calculado.");
-
-    // ----- Alertas -----
-    const campaignAlerts = buildCampaignAlerts(records, startedAt);
-    const pacingAlerts = buildPacingAlerts(
-      pacing,
-      startedAt,
-      (key) => getAccountGroup(key)?.label ?? key,
-    );
-    const alerts = [...campaignAlerts, ...pacingAlerts];
-    await overwriteTab(SHEET_TABS.alerts, alerts);
-    console.log(`✓ ${alerts.length} alertas generadas.`);
+    const campKey = ["platform", "account_group", "ad_account_id", "date_start", "date_stop", "campaign_id"];
+    const adsetKey = [...campKey, "adset_id"];
+    const adKey = [...adsetKey, "ad_id"];
+    const rc = await upsertRows(SHEET_TABS.campaigns, allCampaigns, campKey);
+    const ra = await upsertRows(SHEET_TABS.adsets, allAdsets, adsetKey);
+    const rd = await upsertRows(SHEET_TABS.ads, allAds, adKey);
+    console.log("\n✓ Upsert RAW (histórico diario, sin borrar):");
+    console.log(`  campañas: +${rc.added} nuevas / ${rc.updated} actualizadas · total hoja ${rc.total}`);
+    console.log(`  adsets:   +${ra.added} / ${ra.updated} · total ${ra.total}`);
+    console.log(`  ads:      +${rd.added} / ${rd.updated} · total ${rd.total}`);
+    console.log("  (alertas y pacing se calculan en el dashboard por rango)");
   } else {
-    console.log("\n⚠️  Todas las cuentas fallaron. No se sobrescriben datos.");
+    console.log("\n⚠️  Todas las cuentas fallaron. No se modifican datos.");
   }
 
   // ----- Update log (una fila por cuenta) -----
@@ -272,7 +215,7 @@ export async function runUpdate(argv: string[]) {
     );
   }
   console.log(
-    `\nTotal escrito: ${allCampaigns.length} campañas · ${allAdsets.length} adsets · ${allAds.length} ads`,
+    `\nFilas diarias procesadas: ${allCampaigns.length} (campaña×día) · ${allAdsets.length} (adset×día) · ${allAds.length} (ad×día)`,
   );
   console.log(`Update log: ${logRows.length} filas añadidas (run ${runId}).\n`);
 

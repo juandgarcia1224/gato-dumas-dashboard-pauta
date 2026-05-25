@@ -29,7 +29,13 @@ function badgeClass(s: Severity): string {
  * Nota honesta: sin historial diario, la curva real es interpolación lineal
  * entre 0 y el % acumulado real de hoy (endpoints reales, intermedio disclosed).
  */
-export default function PacingChart({ pacing }: { pacing: PacingVM | null }) {
+export default function PacingChart({
+  pacing,
+  note,
+}: {
+  pacing: PacingVM | null;
+  note?: string | null;
+}) {
   return (
     <section className="section">
       <div className="section-head">
@@ -50,8 +56,11 @@ export default function PacingChart({ pacing }: { pacing: PacingVM | null }) {
         <div className="section-body">
           <EmptyState
             kind="sheet"
-            title="Sin plan mensual"
-            body="Conecta el Sheet de presupuesto (01_MediaPlan) para calcular el pacing y el % consumido."
+            title={note ? "Pacing no disponible" : "Sin plan mensual"}
+            body={
+              note ??
+              "Conecta el Sheet de presupuesto (01_MediaPlan) para calcular el pacing y el % consumido."
+            }
           />
         </div>
       ) : (

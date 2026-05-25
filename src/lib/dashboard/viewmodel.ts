@@ -586,13 +586,14 @@ export function buildDashboardVM(payload: DashboardPayload): DashboardVM {
     connected,
     appliedView: payload.appliedView,
     availableViews: payload.availableViews,
+    availableMonths: payload.availableMonths,
+    pacingNote: payload.pacingNote,
     range: {
       available: payload.range.available,
+      requestedKey: payload.range.requested.key,
       requestedLabel: payload.range.requested.label,
-      loadedLabel: payload.range.loaded?.label ?? null,
-      loadedKey: payload.range.loaded?.key ?? null,
-      loadedStart: payload.range.loaded?.dateStart ?? null,
-      loadedStop: payload.range.loaded?.dateStop ?? null,
+      monthlyPacing: payload.range.monthlyPacing,
+      snapshotOnly: payload.snapshotOnly,
       suggestedCommand: payload.range.suggestedCommand,
     },
     unclassified: {

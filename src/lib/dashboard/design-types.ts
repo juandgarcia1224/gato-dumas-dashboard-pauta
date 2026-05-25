@@ -125,11 +125,10 @@ export interface HeaderVM {
 
 export interface RangeVM {
   available: boolean;
+  requestedKey: string;
   requestedLabel: string;
-  loadedLabel: string | null;
-  loadedKey: string | null;
-  loadedStart: string | null;
-  loadedStop: string | null;
+  monthlyPacing: boolean;
+  snapshotOnly: boolean;
   suggestedCommand: string;
 }
 
@@ -155,7 +154,9 @@ export interface DashboardVM {
   connected: boolean; // hay datos reales de Meta
   appliedView: string;
   availableViews: { key: string; label: string }[];
+  availableMonths: { key: string; label: string }[];
   range: RangeVM;
+  pacingNote: string | null;
   unclassified: UnclassifiedVM;
   header: HeaderVM;
   banners: BannerVM[];
