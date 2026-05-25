@@ -107,29 +107,35 @@ async function pullAccount(
   range: DateRange,
   rangeKey: string,
   pulledAt: string,
+  summaryOnly: boolean,
 ): Promise<PullResult> {
   const group = getAccountGroup(groupKey)!;
   try {
-    // 1) DAILY (time_increment=1): para spend por fecha, filtros y pacing.
-    // 2) RANGE agregado (sin time_increment): para results/CPR exactos.
-    const [campDaily, adsetDaily, adDaily, campRange, adsetRange, adRange] = await Promise.all([
-      fetchInsights(client, adAccountId, "campaign", range, true),
-      fetchInsights(client, adAccountId, "adset", range, true),
-      fetchInsights(client, adAccountId, "ad", range, true),
+    // RANGE agregado (sin time_increment): results/CPR exactos.
+    const [campMeta, adsetMeta, adMeta, campRange, adsetRange, adRange] = await Promise.all([
+      fetchEntityMeta(client, adAccountId, "campaign"),
+      fetchEntityMeta(client, adAccountId, "adset"),
+      fetchEntityMeta(client, adAccountId, "ad"),
       fetchInsights(client, adAccountId, "campaign", range, false),
       fetchInsights(client, adAccountId, "adset", range, false),
       fetchInsights(client, adAccountId, "ad", range, false),
     ]);
-    const [campMeta, adsetMeta, adMeta] = await Promise.all([
-      fetchEntityMeta(client, adAccountId, "campaign"),
-      fetchEntityMeta(client, adAccountId, "adset"),
-      fetchEntityMeta(client, adAccountId, "ad"),
-    ]);
-    const adAccountName = campDaily[0]?.account_name ?? campRange[0]?.account_name ?? group.label;
+    const adAccountName = campRange[0]?.account_name ?? group.label;
 
-    const campaigns = campDaily.map((i) => toCampaignRow(i, groupKey, adAccountId, adAccountName, campMeta, pulledAt));
-    const adsets = adsetDaily.map((i) => toAdsetRow(i, groupKey, adAccountId, adsetMeta, pulledAt));
-    const ads = adDaily.map((i) => toAdRow(i, groupKey, adAccountId, adMeta, pulledAt));
+    // DAILY (time_increment=1) solo si NO es summaryOnly.
+    let campaigns: ReturnType<typeof toCampaignRow>[] = [];
+    let adsets: ReturnType<typeof toAdsetRow>[] = [];
+    let ads: ReturnType<typeof toAdRow>[] = [];
+    if (!summaryOnly) {
+      const [campDaily, adsetDaily, adDaily] = await Promise.all([
+        fetchInsights(client, adAccountId, "campaign", range, true),
+        fetchInsights(client, adAccountId, "adset", range, true),
+        fetchInsights(client, adAccountId, "ad", range, true),
+      ]);
+      campaigns = campDaily.map((i) => toCampaignRow(i, groupKey, adAccountId, adAccountName, campMeta, pulledAt));
+      adsets = adsetDaily.map((i) => toAdsetRow(i, groupKey, adAccountId, adsetMeta, pulledAt));
+      ads = adDaily.map((i) => toAdRow(i, groupKey, adAccountId, adMeta, pulledAt));
+    }
 
     const summaries: SummaryRow[] = [
       ...toSummaryRows(campRange.map((i) => toCampaignRow(i, groupKey, adAccountId, adAccountName, campMeta, pulledAt)), "campaign", "campaign_id", rangeKey),
@@ -147,6 +153,7 @@ async function pullAccount(
 export async function runUpdate(argv: string[]) {
   const args = parseArgs(argv);
   const updatedBy = args.updatedBy ?? "desconocido";
+  const summaryOnly = Boolean(args.summaryOnly);
   const meta = requireMetaEnv();
   requireGoogleEnv();
 
@@ -158,7 +165,7 @@ export async function runUpdate(argv: string[]) {
     apiVersion: meta.apiVersion,
   });
 
-  console.log(`\n=== meta:update · ${label} · por ${updatedBy} ===`);
+  console.log(`\n=== meta:update · ${label}${summaryOnly ? " · SOLO SUMMARY" : ""} · por ${updatedBy} ===`);
   console.log(`run_id=${runId}\n`);
 
   // Cuentas configuradas
@@ -183,11 +190,14 @@ export async function runUpdate(argv: string[]) {
       range,
       rangeKey,
       startedAt,
+      summaryOnly,
     );
     if (r.ok) {
-      console.log(
-        `ok · ${r.campaigns.length} camp / ${r.adsets.length} adsets / ${r.ads.length} ads`,
-      );
+      if (summaryOnly) {
+        console.log(`ok · summary: ${r.summaries.length} filas (campaña+conjunto+anuncio)`);
+      } else {
+        console.log(`ok · ${r.campaigns.length} camp / ${r.adsets.length} adsets / ${r.ads.length} ads`);
+      }
     } else {
       console.log(`ERROR: ${r.error}`);
     }
@@ -202,16 +212,20 @@ export async function runUpdate(argv: string[]) {
   // UPSERT no destructivo (conserva histórico de otros días/meses).
   // Clave única incluye date_start/date_stop → las filas diarias coexisten.
   if (okResults.length > 0) {
-    const campKey = ["platform", "account_group", "ad_account_id", "date_start", "date_stop", "campaign_id"];
-    const adsetKey = [...campKey, "adset_id"];
-    const adKey = [...adsetKey, "ad_id"];
-    const rc = await upsertRows(SHEET_TABS.campaigns, allCampaigns, campKey);
-    const ra = await upsertRows(SHEET_TABS.adsets, allAdsets, adsetKey);
-    const rd = await upsertRows(SHEET_TABS.ads, allAds, adKey);
-    console.log("\n✓ Upsert RAW diario (spend/filtros/pacing, sin borrar):");
-    console.log(`  campañas: +${rc.added} / ${rc.updated} act · total ${rc.total}`);
-    console.log(`  adsets:   +${ra.added} / ${ra.updated} · total ${ra.total}`);
-    console.log(`  ads:      +${rd.added} / ${rd.updated} · total ${rd.total}`);
+    if (!summaryOnly) {
+      const campKey = ["platform", "account_group", "ad_account_id", "date_start", "date_stop", "campaign_id"];
+      const adsetKey = [...campKey, "adset_id"];
+      const adKey = [...adsetKey, "ad_id"];
+      const rc = await upsertRows(SHEET_TABS.campaigns, allCampaigns, campKey);
+      const ra = await upsertRows(SHEET_TABS.adsets, allAdsets, adsetKey);
+      const rd = await upsertRows(SHEET_TABS.ads, allAds, adKey);
+      console.log("\n✓ Upsert RAW diario (spend/filtros/pacing, sin borrar):");
+      console.log(`  campañas: +${rc.added} / ${rc.updated} act · total ${rc.total}`);
+      console.log(`  adsets:   +${ra.added} / ${ra.updated} · total ${ra.total}`);
+      console.log(`  ads:      +${rd.added} / ${rd.updated} · total ${rd.total}`);
+    } else {
+      console.log("\n✓ Modo --summaryOnly: NO se tocan las hojas RAW diarias (02/03/04).");
+    }
 
     // RANGE SUMMARIES (results/CPR exactos del rango, sin sobreconteo diario)
     const allSummaries = okResults.flatMap((r) => r.summaries);
@@ -251,9 +265,14 @@ export async function runUpdate(argv: string[]) {
         (r.ok ? "" : ` — ${r.error}`),
     );
   }
-  console.log(
-    `\nFilas diarias procesadas: ${allCampaigns.length} (campaña×día) · ${allAdsets.length} (adset×día) · ${allAds.length} (ad×día)`,
-  );
+  if (summaryOnly) {
+    const totalSum = okResults.reduce((a, r) => a + r.summaries.length, 0);
+    console.log(`\nRange summaries procesados: ${totalSum} filas (sin tocar daily RAW).`);
+  } else {
+    console.log(
+      `\nFilas diarias procesadas: ${allCampaigns.length} (campaña×día) · ${allAdsets.length} (adset×día) · ${allAds.length} (ad×día)`,
+    );
+  }
   console.log(`Update log: ${logRows.length} filas añadidas (run ${runId}).\n`);
 
   if (okResults.length === 0) process.exit(1);

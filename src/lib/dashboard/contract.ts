@@ -317,7 +317,7 @@ export function buildDashboardPayload(input: {
   } else if (resolved && !available) {
     notices.push({ level: "info", code: "range_unavailable", message: `No hay datos cargados para "${reqLabel}".` });
   } else if (available && !summaryAvailable) {
-    notices.push({ level: "info", code: "results_pending", message: `Gasto y filtros disponibles, pero los resultados exactos de "${reqLabel}" requieren sincronización agregada del rango.` });
+    notices.push({ level: "info", code: "results_pending", message: `Gasto y filtros disponibles; los resultados exactos de "${reqLabel}" requieren sincronización agregada: ${suggestedCommand(reqKey)} --summaryOnly` });
   }
 
   // Fuente de filas: summary exacto (results correctos) o daily (results en blanco).

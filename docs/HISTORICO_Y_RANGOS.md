@@ -25,6 +25,15 @@ META_ACCESS_TOKEN="<TOKEN>" npm run meta:update -- --dateStart 2026-03-01 --date
 > META_ACCESS_TOKEN="<TOKEN>" npm run meta:update -- --dateStart 2026-05-01 --dateStop 2026-05-31 --updatedBy Juan
 > ```
 
+## 2b. Cargar SOLO results exactos (sin re-pull diario): `--summaryOnly`
+Si el daily ya está cargado y solo faltan los results/CPR exactos de un rango
+(o el daily es pesado y no quieres repetirlo), usa `--summaryOnly`:
+```bash
+META_ACCESS_TOKEN="<TOKEN>" npm run meta:update -- --dateStart 2026-05-01 --dateStop 2026-05-31 --updatedBy Juan --summaryOnly
+```
+Hace **solo** el range pull agregado → escribe `10_Meta_Range_Summaries` por upsert.
+**No toca** `02/03/04` (daily). Más liviano para Meta (menos llamadas).
+
 ## 3. Actualizar el mes actual (rutina)
 ```bash
 META_ACCESS_TOKEN="<TOKEN>" npm run meta:update -- --range this_month --updatedBy Juan
