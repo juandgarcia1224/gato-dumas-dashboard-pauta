@@ -1,4 +1,6 @@
-/** Pie de página institucional (Cloud Design). */
+import { BUILD_VERSION, BUILD_DATE } from "@/lib/version";
+
+/** Pie de página institucional (Cloud Design) con marcador de versión. */
 export default function FooterRule({ generatedAt }: { generatedAt: string }) {
   return (
     <div className="footer-rule">
@@ -7,9 +9,9 @@ export default function FooterRule({ generatedAt }: { generatedAt: string }) {
         Dumas
       </div>
       <div className="stamps">
-        <span>v1.0 · Fase 3</span>
+        <span>{BUILD_VERSION}</span>
         <span>·</span>
-        <span>Datos reales vía /api/dashboard</span>
+        <span>{BUILD_DATE}</span>
       </div>
     </div>
   );

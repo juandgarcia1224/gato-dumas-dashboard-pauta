@@ -16,6 +16,7 @@ import PerformanceTables from "./PerformanceTables";
 import ClientExecutiveSummary from "./ClientExecutiveSummary";
 import UnclassifiedPanel from "./UnclassifiedPanel";
 import FooterRule from "./FooterRule";
+import { BUILD_VERSION } from "@/lib/version";
 import { Clock } from "lucide-react";
 
 type Mode = "interno" | "cliente";
@@ -51,6 +52,8 @@ export default function DashboardShell() {
     if (ds) setDateStart(ds);
     if (dd) setDateStop(dd);
     initialized.current = true;
+    // Marcador de build para diagnosticar despliegues.
+    console.info(`[Gato Dumas] build ${BUILD_VERSION}`);
   }, []);
 
   useEffect(() => {
@@ -116,7 +119,7 @@ export default function DashboardShell() {
   }
 
   return (
-    <div className="app">
+    <div className="app" data-build={BUILD_VERSION}>
       <DashboardHeader
         header={
           vm?.header ?? {
