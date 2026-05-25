@@ -43,6 +43,27 @@ El upsert deduplica por clave única que incluye `date_start`. Recargar un día/
 - Si hay histórico pero el rango pedido no tiene datos: "No hay datos para [rango]"
   + comando + botón para ver el último mes con datos.
 
+## 5b. Resultados y CPR exactos (range summaries)
+Los métricos con **ventana de atribución** (ej. `messaging_conversation_started_7d`)
+**no son aditivos**: sumar filas diarias los infla (mayo daba ~20.416 vs ~5.132 reales).
+
+Por eso `meta:update` hace **doble carga**:
+1. **Daily** (`time_increment=1`) → hojas `02/03/04` → spend, impresiones, clics,
+   CTR, frecuencia, filtros por fecha y pacing (todo aditivo/correcto).
+2. **Range agregado** (sin `time_increment`, mismas fechas) → hoja
+   **`10_Meta_Range_Summaries`** → **results y cost_per_result exactos** del rango.
+
+El dashboard, para el rango seleccionado:
+- Si existe un **range summary exacto** (mismo `date_start..date_stop`) → usa results/CPR exactos (badge "Resultados exactos").
+- Si NO existe → muestra spend y filtros (de daily) y deja **results/CPR en "—"**
+  con aviso "Resultados pendientes de sincronización exacta" + comando. **No suma
+  daily de messaging como oficial** (no infla, no inventa).
+
+`range_key` = `date_start..date_stop`. Los **meses** usan mes completo
+(`2026-05-01..2026-05-31`), así que el chip "Mayo" casa con el summary cargado con
+esas fechas. Para que un mes tenga results exactos, cárgalo con fechas de mes completo
+(`--dateStart 2026-05-01 --dateStop 2026-05-31`).
+
 ## 6. Pacing mensual
 - **Mes actual / un mes específico (Marzo/Abril/Mayo):** si `01_MediaPlan` tiene
   presupuesto de ese mes y cuenta → pacing real (esperado vs real, % consumido).

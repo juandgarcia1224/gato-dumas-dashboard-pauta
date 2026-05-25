@@ -20,10 +20,12 @@ no llama a Meta en vivo.
 - **ID:** `1Mbh7nkLQttvZOGzMZtQpsMlk3sGeG3R854KjyTomF-k`
 - **Ruta:** CookMinds / Clientes / Gato Dumas / Dashboard Pauta · Owner `cookmindsagency@gmail.com`
 - **Service account (Editor):** `gato-dumas-dashboard-writer@cookminds-dashboards.iam.gserviceaccount.com`
-- Hojas: `00_Config`, `01_MediaPlan`, `02_Meta_Campaigns_Raw`, `03_Meta_Adsets_Raw`, `04_Meta_Ads_Raw`, `05_Daily_Pacing`, `06_Alerts`, `07_Update_Log`.
+- Hojas: `00_Config`, `01_MediaPlan`, `02_Meta_Campaigns_Raw`, `03_Meta_Adsets_Raw`, `04_Meta_Ads_Raw`, `05_Daily_Pacing`, `06_Alerts`, `07_Update_Log`, `08_Campaign_Mapping`, `10_Meta_Range_Summaries`.
 
 ## 3. Actualizar Meta (token temporal)
 El token de Meta **no se guarda**; se entrega por corrida (ver `SEGURIDAD_TOKENS.md`).
+Cada corrida hace **doble carga**: diaria (spend/filtros/pacing) + agregada por rango
+(results/CPR exactos en `10_Meta_Range_Summaries`). Ver `HISTORICO_Y_RANGOS.md`.
 ```bash
 # Forma B (interactiva, oculta el token):
 npm run meta:update:manual -- --range this_month --updatedBy Juan
@@ -31,6 +33,8 @@ npm run meta:update:manual -- --range this_month --updatedBy Juan
 META_ACCESS_TOKEN="<TOKEN>" npm run meta:update -- --range this_month --updatedBy Juan
 ```
 Rangos: `today | yesterday | last_7d | this_month` o `--dateStart/--dateStop`.
+Para **results exactos por mes**, carga con fechas de mes completo
+(ej. `--dateStart 2026-05-01 --dateStop 2026-05-31`).
 
 ## 4. Recalcular pacing SIN token
 Tras editar `01_MediaPlan` (presupuestos), refresca el pacing sin tocar Meta:
