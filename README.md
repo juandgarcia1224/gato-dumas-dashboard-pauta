@@ -100,6 +100,16 @@ Detalle paso a paso en [`docs/SETUP.md`](docs/SETUP.md) y seguridad en
 
 ---
 
+## Rutina semanal de actualización
+Guía simple para Paola/Juan (actualizar y revisar sin tocar código):
+**[`docs/RUTINA_SEMANAL_PAOLA.md`](docs/RUTINA_SEMANAL_PAOLA.md)**.
+
+Resumen: cada semana correr `META_ACCESS_TOKEN="<TOKEN>" npm run meta:update -- --range this_month --updatedBy Paola`
+(actualiza gasto diario + results/CPR exactos del mes, sin borrar histórico) y revisar
+Consolidado / Colombia / Bogotá / Barranquilla / Bucaramanga + alertas + pacing.
+
+---
+
 ## Arquitectura
 
 ```
@@ -124,9 +134,15 @@ Flujo: `Meta API → transform → Google Sheets → /api/dashboard → UI`.
 
 ## Documentación
 
+- [`docs/RUTINA_SEMANAL_PAOLA.md`](docs/RUTINA_SEMANAL_PAOLA.md) — **rutina semanal (Paola/Juan)**.
+- [`docs/OPERACION_DASHBOARD_GATO_DUMAS.md`](docs/OPERACION_DASHBOARD_GATO_DUMAS.md) — operación del dashboard.
+- [`docs/HISTORICO_Y_RANGOS.md`](docs/HISTORICO_Y_RANGOS.md) — histórico diario, rangos y results exactos.
+- [`docs/MEDIAPLAN_GATO_DUMAS.md`](docs/MEDIAPLAN_GATO_DUMAS.md) — cómo llenar presupuestos (pacing).
+- [`docs/CAMPAIGN_MAPPING_GATO_DUMAS.md`](docs/CAMPAIGN_MAPPING_GATO_DUMAS.md) — clasificar sede de campañas.
 - [`docs/SETUP.md`](docs/SETUP.md) — instalación y credenciales paso a paso.
 - [`docs/DATA_SCHEMA.md`](docs/DATA_SCHEMA.md) — todas las hojas y columnas.
-- [`docs/DESIGN_CONTRACT.md`](docs/DESIGN_CONTRACT.md) — **para Cloud Design**.
-- [`docs/OPERACION_ACTUALIZACION.md`](docs/OPERACION_ACTUALIZACION.md) — operación diaria.
+- [`docs/DEPLOY_VERCEL.md`](docs/DEPLOY_VERCEL.md) — despliegue en Vercel.
 - [`docs/SEGURIDAD_TOKENS.md`](docs/SEGURIDAD_TOKENS.md) — manejo de tokens/credenciales.
+- [`docs/PENDIENTES_PROXIMOS_BLOQUES.md`](docs/PENDIENTES_PROXIMOS_BLOQUES.md) — roadmap.
+- [`docs/DESIGN_CONTRACT.md`](docs/DESIGN_CONTRACT.md) — contrato para Cloud Design.
 - [`docs/FUTURO_TIKTOK.md`](docs/FUTURO_TIKTOK.md) — plan de Fase 2.
