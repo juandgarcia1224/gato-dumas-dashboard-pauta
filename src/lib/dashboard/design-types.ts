@@ -127,6 +127,9 @@ export interface RangeVM {
   available: boolean;
   requestedLabel: string;
   loadedLabel: string | null;
+  loadedKey: string | null;
+  loadedStart: string | null;
+  loadedStop: string | null;
   suggestedCommand: string;
 }
 

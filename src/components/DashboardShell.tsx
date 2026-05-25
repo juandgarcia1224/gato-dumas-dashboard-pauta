@@ -35,6 +35,7 @@ export default function DashboardShell() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initialized = useRef(false);
+  const synced = useRef(false);
 
   // Restaurar modo/tema + leer query params (una vez)
   useEffect(() => {
@@ -48,7 +49,10 @@ export default function DashboardShell() {
     const ds = sp.get("dateStart");
     const dd = sp.get("dateStop");
     if (v) setView(v);
-    if (r) setRange(r);
+    if (r) {
+      setRange(r);
+      synced.current = true; // el usuario/URL fijó el rango: no autoseleccionar
+    }
     if (ds) setDateStart(ds);
     if (dd) setDateStop(dd);
     initialized.current = true;
@@ -103,6 +107,22 @@ export default function DashboardShell() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Autoseleccionar el rango realmente cargado (si el usuario no fijó uno),
+  // para abrir mostrando los datos en vez de "sin datos para Mes actual".
+  useEffect(() => {
+    if (!payload || synced.current) return;
+    synced.current = true;
+    const lk = payload.range.loaded?.key;
+    if (lk && lk !== range) {
+      if (lk === "custom" && payload.range.loaded) {
+        setDateStart(payload.range.loaded.dateStart);
+        setDateStop(payload.range.loaded.dateStop);
+      }
+      setRange(lk);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload]);
 
   const vm = useMemo(() => (payload ? buildDashboardVM(payload) : null), [payload]);
   const scopeLabel = VIEWS.find((v) => v.key === view)?.label ?? "Consolidado";
@@ -160,7 +180,21 @@ export default function DashboardShell() {
         </div>
       ) : vm ? (
         !vm.range.available ? (
-          <RangeUnavailable vm={vm} onShowLoaded={() => { setDateStart(""); setDateStop(""); setRange(loadedKey(vm)); }} />
+          <RangeUnavailable
+            vm={vm}
+            onShowLoaded={() => {
+              const lk = vm.range.loadedKey;
+              if (lk === "custom") {
+                setDateStart(vm.range.loadedStart ?? "");
+                setDateStop(vm.range.loadedStop ?? "");
+                setRange("custom");
+              } else if (lk) {
+                setDateStart("");
+                setDateStop("");
+                setRange(lk);
+              }
+            }}
+          />
         ) : (
           <>
             <ExecStrip data={vm.exec} mode={mode} />
@@ -205,19 +239,6 @@ export default function DashboardShell() {
       ) : null}
     </div>
   );
-}
-
-function loadedKey(vm: NonNullable<ReturnType<typeof buildDashboardVM>>): string {
-  // Mapea la etiqueta cargada a su key de rango (fallback this_month).
-  const label = vm.range.loadedLabel ?? "";
-  if (label.includes("–")) return "this_month"; // custom cargado → caer a mes actual como atajo
-  const map: Record<string, string> = {
-    Hoy: "today",
-    Ayer: "yesterday",
-    "Últimos 7 días": "last_7d",
-    "Mes actual": "this_month",
-  };
-  return map[label] ?? "this_month";
 }
 
 function RangeUnavailable({

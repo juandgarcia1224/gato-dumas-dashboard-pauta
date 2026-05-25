@@ -590,6 +590,9 @@ export function buildDashboardVM(payload: DashboardPayload): DashboardVM {
       available: payload.range.available,
       requestedLabel: payload.range.requested.label,
       loadedLabel: payload.range.loaded?.label ?? null,
+      loadedKey: payload.range.loaded?.key ?? null,
+      loadedStart: payload.range.loaded?.dateStart ?? null,
+      loadedStop: payload.range.loaded?.dateStop ?? null,
       suggestedCommand: payload.range.suggestedCommand,
     },
     unclassified: {
