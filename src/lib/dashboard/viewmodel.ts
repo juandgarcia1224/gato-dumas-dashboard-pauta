@@ -14,10 +14,11 @@ import type { AccountSummary, Kpis } from "./metrics";
 import { getAccountGroup } from "../config/clients";
 import {
   formatCOP,
-  formatDateTime,
   formatDecimal,
   formatNumber,
   formatPercent,
+  formatUpdatePremium,
+  isSameBogotaDay,
 } from "./formatters";
 import type {
   AccountVM,
@@ -431,11 +432,20 @@ function buildTables(payload: DashboardPayload) {
 // ---------- Header ----------
 function buildHeader(payload: DashboardPayload, connected: boolean) {
   const lu = payload.lastUpdate;
-  let lastUpdate = { label: "Pendiente · sin sincronizar", status: "warn" as Severity };
+  let lastUpdate = {
+    label: "Pendiente de sincronizar",
+    status: "warn" as Severity,
+    badge: "Pendiente",
+  };
   if (lu && lu.finished_at) {
+    const sameDay = isSameBogotaDay(lu.finished_at);
     const ageH = (Date.now() - new Date(lu.finished_at).getTime()) / 3.6e6;
-    const status: Severity = ageH > 72 ? "crit" : ageH > 24 ? "warn" : "ok";
-    lastUpdate = { label: formatDateTime(lu.finished_at), status };
+    const status: Severity = sameDay ? "ok" : ageH > 72 ? "crit" : "warn";
+    lastUpdate = {
+      label: formatUpdatePremium(lu.finished_at),
+      status,
+      badge: sameDay ? "Al día" : "Revisar actualización",
+    };
   }
 
   // El token de Meta es temporal (se entrega por corrida): NO determina el
@@ -475,6 +485,8 @@ const BANNER_META: Record<
   read_error: { title: "No fue posible leer Google Sheets", icon: "cloud-off" },
   no_data: { title: "Sin datos cargados", icon: "database" },
   no_last_update: { title: "Última actualización pendiente", icon: "clock" },
+  range_unavailable: { title: "Rango sin datos", icon: "clock" },
+  unclassified: { title: "Campañas sin sede", icon: "info" },
 };
 
 function buildBanners(payload: DashboardPayload): BannerVM[] {
@@ -572,6 +584,24 @@ export function buildDashboardVM(payload: DashboardPayload): DashboardVM {
 
   return {
     connected,
+    appliedView: payload.appliedView,
+    availableViews: payload.availableViews,
+    range: {
+      available: payload.range.available,
+      requestedLabel: payload.range.requested.label,
+      loadedLabel: payload.range.loaded?.label ?? null,
+      suggestedCommand: payload.range.suggestedCommand,
+    },
+    unclassified: {
+      count: payload.unclassified.count,
+      campaigns: payload.unclassified.campaigns.map((c) => ({
+        campaign_name: c.campaign_name,
+        campaign_id: c.campaign_id,
+        spend: formatCOP(c.spend),
+        results: c.results === null ? "—" : formatNumber(c.results),
+        reason: c.reason,
+      })),
+    },
     header: buildHeader(payload, connected),
     banners: buildBanners(payload),
     exec: buildExec(payload, connected, pacing),

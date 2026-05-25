@@ -12,6 +12,7 @@ import {
   getAccountGroup,
   type AccountGroupKey,
 } from "../config/clients";
+import type { Sede } from "./sede";
 
 /** Registro normalizado (números parseados) de una fila de campaña. */
 export interface CampaignRecord {
@@ -37,6 +38,8 @@ export interface CampaignRecord {
   cost_per_result: number | null;
   date_start: string;
   date_stop: string;
+  /** Sede inferida (se asigna en contract.ts; no viene de Sheets). */
+  sede?: Sede;
 }
 
 export interface Kpis {

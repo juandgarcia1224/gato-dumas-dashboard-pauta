@@ -11,26 +11,27 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/dashboard?account=all|gato_colombia|gato_bucaramanga
- * Devuelve el DashboardPayload (ver src/lib/dashboard/contract.ts).
- * Nunca lanza: si Sheets no está listo o falla la lectura, devuelve payload
- * con notices claros y datos vacíos.
+ * GET /api/dashboard
+ *   ?view=consolidado|gato_colombia|bogota|barranquilla|gato_bucaramanga
+ *   ?range=today|yesterday|last_7d|this_month|custom
+ *   ?dateStart=YYYY-MM-DD&dateStop=YYYY-MM-DD   (para range=custom)
+ *
+ * Nunca lanza: si Sheets no está listo o falla, devuelve payload con notices.
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const accountFilter = url.searchParams.get("account") ?? "all";
+  // `view` nuevo; `account` por compatibilidad.
+  const view = url.searchParams.get("view") ?? url.searchParams.get("account") ?? "consolidado";
+  const range = url.searchParams.get("range") ?? undefined;
+  const dateStart = url.searchParams.get("dateStart") ?? undefined;
+  const dateStop = url.searchParams.get("dateStop") ?? undefined;
   const appEnv = getAppEnv();
   const envStatus = getEnvStatus();
 
+  const common = { appEnv, envStatus, view, range, dateStart, dateStop };
+
   if (!envStatus.sheetsReady) {
-    return NextResponse.json(
-      buildDashboardPayload({
-        appEnv,
-        envStatus,
-        tabs: emptyTabs(),
-        accountFilter,
-      }),
-    );
+    return NextResponse.json(buildDashboardPayload({ ...common, tabs: emptyTabs() }));
   }
 
   try {
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
       SHEET_TABS.alerts,
       SHEET_TABS.pacing,
       SHEET_TABS.updateLog,
+      SHEET_TABS.mapping,
     ]);
     const tabs: RawTabs = {
       campaigns: data[SHEET_TABS.campaigns] ?? [],
@@ -49,20 +51,13 @@ export async function GET(req: Request) {
       alerts: data[SHEET_TABS.alerts] ?? [],
       pacing: data[SHEET_TABS.pacing] ?? [],
       updateLog: data[SHEET_TABS.updateLog] ?? [],
+      mapping: data[SHEET_TABS.mapping] ?? [],
     };
-    return NextResponse.json(
-      buildDashboardPayload({ appEnv, envStatus, tabs, accountFilter }),
-    );
+    return NextResponse.json(buildDashboardPayload({ ...common, tabs }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      buildDashboardPayload({
-        appEnv,
-        envStatus,
-        tabs: emptyTabs(),
-        accountFilter,
-        readError: message,
-      }),
+      buildDashboardPayload({ ...common, tabs: emptyTabs(), readError: message }),
     );
   }
 }

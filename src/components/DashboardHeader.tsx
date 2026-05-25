@@ -55,6 +55,19 @@ export default function DashboardHeader({
           <div className="v">
             <span className={`status-dot ${dotClass(header.lastUpdate.status)}`} />
             <span>{header.lastUpdate.label}</span>
+            <span
+              className={
+                "badge " +
+                (header.lastUpdate.status === "ok"
+                  ? "ok"
+                  : header.lastUpdate.status === "crit"
+                    ? "crit"
+                    : "warn")
+              }
+              style={{ fontSize: 9.5 }}
+            >
+              {header.lastUpdate.badge}
+            </span>
           </div>
         </div>
         <div className="meta-pill">

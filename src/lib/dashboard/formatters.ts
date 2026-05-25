@@ -59,3 +59,41 @@ export function formatDateTime(iso: string | null | undefined): string {
     timeZone: TZ,
   }).format(d);
 }
+
+/** Premium: "lun, 25 may · 7:48 a. m." (hora Colombia). */
+export function formatUpdatePremium(iso: string | null | undefined): string {
+  if (!iso) return "Pendiente de sincronizar";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const fecha = new Intl.DateTimeFormat("es-CO", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: TZ,
+  }).format(d);
+  const hora = new Intl.DateTimeFormat("es-CO", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: TZ,
+  }).format(d);
+  return `${fecha} · ${hora}`;
+}
+
+/** ¿El timestamp cae en el mismo día (zona Bogotá) que ahora? */
+export function isSameBogotaDay(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+  return fmt.format(d) === fmt.format(new Date());
+}
+
+/** Fecha corta legible "25 may 2026" desde YYYY-MM-DD (sin hora). */
+export function formatShortDate(ymd: string | null | undefined): string {
+  if (!ymd) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return ymd;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric" }).format(d);
+}

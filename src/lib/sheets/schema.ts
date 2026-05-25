@@ -13,6 +13,7 @@ export const SHEET_TABS = {
   pacing: "05_Daily_Pacing",
   alerts: "06_Alerts",
   updateLog: "07_Update_Log",
+  mapping: "08_Campaign_Mapping",
 } as const;
 
 export type SheetTab = (typeof SHEET_TABS)[keyof typeof SHEET_TABS];
@@ -172,6 +173,15 @@ export const HEADERS: Record<SheetTab, string[]> = {
     "adsets_count",
     "ads_count",
     "error_message",
+  ],
+  [SHEET_TABS.mapping]: [
+    "platform",
+    "account_group",
+    "campaign_id",
+    "campaign_name",
+    "sede",
+    "program_type",
+    "notes",
   ],
 };
 

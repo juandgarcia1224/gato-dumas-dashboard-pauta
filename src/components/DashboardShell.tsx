@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DashboardPayload } from "@/lib/dashboard/contract";
 import { buildDashboardVM } from "@/lib/dashboard/viewmodel";
+import { VIEWS } from "@/lib/dashboard/sede";
 import DashboardHeader from "./DashboardHeader";
 import StatusBanners from "./StatusBanners";
 import FilterBar from "./FilterBar";
@@ -13,35 +14,45 @@ import PacingChart from "./PacingChart";
 import AlertsPanel from "./AlertsPanel";
 import PerformanceTables from "./PerformanceTables";
 import ClientExecutiveSummary from "./ClientExecutiveSummary";
+import UnclassifiedPanel from "./UnclassifiedPanel";
 import FooterRule from "./FooterRule";
+import { Clock } from "lucide-react";
 
 type Mode = "interno" | "cliente";
 type Theme = "light" | "dark";
 
-/**
- * Orquestador (Cloud Design). Fuente de datos REAL: GET /api/dashboard.
- * NO usa data.js / mock. El modo/tema se aplican en <html data-*> (CSS maneja
- * la visibilidad por modo, no el JSX).
- */
 export default function DashboardShell() {
-  const [account, setAccount] = useState("all");
+  const [view, setView] = useState("consolidado");
+  const [range, setRange] = useState("this_month");
+  const [dateStart, setDateStart] = useState<string>("");
+  const [dateStop, setDateStop] = useState<string>("");
   const [mode, setMode] = useState<Mode>("interno");
   const [theme, setTheme] = useState<Theme>("light");
-  const [level, setLevel] = useState("Campañas");
+  const [tab, setTab] = useState("Campañas");
   const [payload, setPayload] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialized = useRef(false);
 
-  // Restaurar preferencias de vista
+  // Restaurar modo/tema + leer query params (una vez)
   useEffect(() => {
     const m = localStorage.getItem("gd_mode") as Mode | null;
     const t = localStorage.getItem("gd_theme") as Theme | null;
     if (m) setMode(m);
     if (t) setTheme(t);
+    const sp = new URLSearchParams(window.location.search);
+    const v = sp.get("view");
+    const r = sp.get("range");
+    const ds = sp.get("dateStart");
+    const dd = sp.get("dateStop");
+    if (v) setView(v);
+    if (r) setRange(r);
+    if (ds) setDateStart(ds);
+    if (dd) setDateStop(dd);
+    initialized.current = true;
   }, []);
 
-  // Aplicar data-* en <html> (Cloud Design: visibilidad por CSS)
   useEffect(() => {
     document.documentElement.dataset.mode = mode;
     document.documentElement.dataset.theme = theme;
@@ -49,47 +60,60 @@ export default function DashboardShell() {
     localStorage.setItem("gd_theme", theme);
   }, [mode, theme]);
 
-  const load = useCallback(async (acct: string, isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/dashboard?account=${acct}`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setPayload((await res.json()) as DashboardPayload);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar el dashboard");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
+  // Reflejar filtros en la URL (sin recargar)
   useEffect(() => {
-    load(account);
-  }, [account, load]);
+    if (!initialized.current) return;
+    const sp = new URLSearchParams();
+    sp.set("view", view);
+    sp.set("range", range);
+    if (range === "custom" && dateStart && dateStop) {
+      sp.set("dateStart", dateStart);
+      sp.set("dateStop", dateStop);
+    }
+    window.history.replaceState(null, "", `?${sp.toString()}`);
+  }, [view, range, dateStart, dateStop]);
 
-  const vm = useMemo(() => (payload ? buildDashboardVM(payload) : null), [payload]);
-
-  const accountOptions = useMemo(
-    () =>
-      (payload?.status.accounts ?? []).map((a) => ({
-        key: a.key,
-        label: a.label,
-        configured: a.configured,
-        alt: a.key === "gato_bucaramanga",
-      })),
-    [payload],
+  const load = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const sp = new URLSearchParams({ view, range });
+        if (range === "custom" && dateStart && dateStop) {
+          sp.set("dateStart", dateStart);
+          sp.set("dateStop", dateStop);
+        }
+        const res = await fetch(`/api/dashboard?${sp.toString()}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setPayload((await res.json()) as DashboardPayload);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error al cargar el dashboard");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [view, range, dateStart, dateStop],
   );
 
-  const loadedRange = payload?.lastUpdate?.date_preset_or_range ?? "";
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const scopeLabel =
-    account === "gato_colombia"
-      ? "Gato Colombia · Bogotá + Barranquilla"
-      : account === "gato_bucaramanga"
-        ? "Gato Bucaramanga · Cinco Gatos"
-        : "Consolidado · Gato Colombia + Gato Bucaramanga";
+  const vm = useMemo(() => (payload ? buildDashboardVM(payload) : null), [payload]);
+  const scopeLabel = VIEWS.find((v) => v.key === view)?.label ?? "Consolidado";
+
+  function applyCustom(s: string, e: string) {
+    setDateStart(s);
+    setDateStop(e);
+    setRange("custom");
+  }
+  function clearCustom() {
+    setDateStart("");
+    setDateStop("");
+    setRange("this_month");
+  }
 
   return (
     <div className="app">
@@ -99,7 +123,7 @@ export default function DashboardShell() {
             brandName: "Gato Dumas",
             subtitle: "Centro de Seguimiento Digital",
             kicker: "Pauta digital · Meta Ads",
-            lastUpdate: { label: "Cargando…", status: "info" },
+            lastUpdate: { label: "Cargando…", status: "info", badge: "…" },
             connection: { label: "Cargando…", status: "info" },
           }
         }
@@ -107,19 +131,22 @@ export default function DashboardShell() {
         theme={theme}
         onModeChange={setMode}
         onThemeChange={setTheme}
-        onRefresh={() => load(account, true)}
+        onRefresh={() => load(true)}
         refreshing={refreshing}
       />
 
       {vm && <StatusBanners banners={vm.banners} />}
 
       <FilterBar
-        loadedRange={loadedRange}
-        account={account}
-        accounts={accountOptions}
-        onAccountChange={setAccount}
-        level={level}
-        onLevelChange={setLevel}
+        views={VIEWS}
+        view={view}
+        onViewChange={setView}
+        range={range}
+        dateStart={dateStart}
+        dateStop={dateStop}
+        onRangeChange={setRange}
+        onApplyCustom={applyCustom}
+        onClearCustom={clearCustom}
       />
 
       {loading && !vm ? (
@@ -129,43 +156,96 @@ export default function DashboardShell() {
           <span className="sb-title">Error de carga:</span> {error}
         </div>
       ) : vm ? (
-        <>
-          <ExecStrip data={vm.exec} mode={mode} />
+        !vm.range.available ? (
+          <RangeUnavailable vm={vm} onShowLoaded={() => { setDateStart(""); setDateStop(""); setRange(loadedKey(vm)); }} />
+        ) : (
+          <>
+            <ExecStrip data={vm.exec} mode={mode} />
 
-          <div className="section-heading">
-            <span className="h-rule" />
-            <h3 className="h-section">Resumen ejecutivo · KPIs</h3>
-            <span className="sub">{scopeLabel}</span>
-          </div>
-          <KpiGrid items={vm.kpis} />
-
-          <AccountSummary accounts={vm.accounts} activeAccount={account} />
-
-          <PacingChart pacing={vm.pacing} />
-
-          <AlertsPanel alerts={vm.alerts} counts={vm.alertCounts} />
-
-          <div className="internal-only">
             <div className="section-heading">
               <span className="h-rule" />
-              <h3 className="h-section">Análisis por nivel</h3>
-              <span className="sub">Vista operativa · campañas, conjuntos y anuncios</span>
+              <h3 className="h-section">Resumen ejecutivo · KPIs</h3>
+              <span className="sub">{scopeLabel} · {vm.range.requestedLabel}</span>
             </div>
-            <PerformanceTables
-              campaigns={vm.campaigns}
-              adsets={vm.adsets}
-              ads={vm.ads}
-              tab={level}
-              onTab={setLevel}
+            <KpiGrid items={vm.kpis} />
+
+            <AccountSummary
+              accounts={vm.accounts}
+              activeAccount={view === "bogota" || view === "barranquilla" ? "gato_colombia" : view}
             />
-          </div>
 
-          <ClientExecutiveSummary data={vm.exec} />
+            <PacingChart pacing={vm.pacing} />
 
-          <FooterRule generatedAt={vm.generatedAt} />
-        </>
+            <AlertsPanel alerts={vm.alerts} counts={vm.alertCounts} />
+
+            <div className="internal-only">
+              {(view === "consolidado" || view === "gato_colombia") &&
+                vm.unclassified.count > 0 && <UnclassifiedPanel data={vm.unclassified} />}
+              <div className="section-heading">
+                <span className="h-rule" />
+                <h3 className="h-section">Análisis por nivel</h3>
+                <span className="sub">Vista operativa · campañas, conjuntos y anuncios</span>
+              </div>
+              <PerformanceTables
+                campaigns={vm.campaigns}
+                adsets={vm.adsets}
+                ads={vm.ads}
+                tab={tab}
+                onTab={setTab}
+              />
+            </div>
+
+            <ClientExecutiveSummary data={vm.exec} />
+            <FooterRule generatedAt={vm.generatedAt} />
+          </>
+        )
       ) : null}
     </div>
+  );
+}
+
+function loadedKey(vm: NonNullable<ReturnType<typeof buildDashboardVM>>): string {
+  // Mapea la etiqueta cargada a su key de rango (fallback this_month).
+  const label = vm.range.loadedLabel ?? "";
+  if (label.includes("–")) return "this_month"; // custom cargado → caer a mes actual como atajo
+  const map: Record<string, string> = {
+    Hoy: "today",
+    Ayer: "yesterday",
+    "Últimos 7 días": "last_7d",
+    "Mes actual": "this_month",
+  };
+  return map[label] ?? "this_month";
+}
+
+function RangeUnavailable({
+  vm,
+  onShowLoaded,
+}: {
+  vm: NonNullable<ReturnType<typeof buildDashboardVM>>;
+  onShowLoaded: () => void;
+}) {
+  return (
+    <section className="section">
+      <div className="section-body">
+        <div className="empty-state">
+          <div className="es-icon" style={{ color: "var(--warn)" }}>
+            <Clock size={22} />
+          </div>
+          <p className="es-title">No hay datos cargados para “{vm.range.requestedLabel}”.</p>
+          <p className="es-body">
+            El dashboard solo muestra datos del rango ya sincronizado
+            {vm.range.loadedLabel ? ` (${vm.range.loadedLabel})` : ""}. Para ver este
+            rango, sincroniza Meta Ads desde local y recarga.
+          </p>
+          <pre className="cmd-box">{vm.range.suggestedCommand}</pre>
+          {vm.range.loadedLabel && (
+            <button className="btn ghost es-action" onClick={onShowLoaded}>
+              Ver {vm.range.loadedLabel}
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

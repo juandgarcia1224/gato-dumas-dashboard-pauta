@@ -1,124 +1,142 @@
 "use client";
 
+import { useState } from "react";
+
 /**
- * FilterBar (Cloud Design §2.B).
- * - Rango: refleja el rango YA cargado (se fija al sincronizar por terminal con
- *   `meta:update`); las otras opciones se muestran deshabilitadas para no
- *   sugerir datos que no existen.
- * - Cuenta: filtro real → recarga /api/dashboard?account=.
- * - Nivel: controla la tabla activa. El grupo lleva clase `level` → oculto en
- *   modo cliente vía CSS.
+ * FilterBar (Bloque 10): Vista (5 ámbitos) + Rango (4 presets + Personalizado).
+ * - Vista: filtro real → recarga /api/dashboard?view=.
+ * - Rango: recarga con ?range=; si el rango no tiene datos cargados, el botón
+ *   queda activo y el dashboard muestra estado claro (no botón muerto).
+ * - Personalizado: abre panel con dos fechas + Aplicar / Limpiar (validado).
+ * El grupo "Nivel"/técnico se mantiene fuera; aquí Vista reemplaza a Cuenta.
  */
 
-const RANGE_OPTIONS: { id: string; label: string }[] = [
-  { id: "today", label: "Hoy" },
-  { id: "last_7d", label: "Últimos 7 días" },
-  { id: "this_month", label: "Mes actual" },
-  { id: "custom", label: "Personalizado" },
+const RANGES: { key: string; label: string }[] = [
+  { key: "this_month", label: "Mes actual" },
+  { key: "last_7d", label: "Últimos 7 días" },
+  { key: "today", label: "Hoy" },
+  { key: "custom", label: "Personalizado" },
 ];
 
-function normalizeRange(loaded: string): string {
-  if (loaded === "today") return "today";
-  if (loaded === "last_7d") return "last_7d";
-  if (loaded === "this_month") return "this_month";
-  if (loaded && loaded.includes("..")) return "custom";
-  return "";
-}
-
-export interface AccountOption {
+export interface ViewOption {
   key: string;
   label: string;
-  configured: boolean;
-  alt?: boolean;
 }
 
-const LEVELS = ["Campañas", "Conjuntos", "Anuncios"] as const;
-
 export default function FilterBar({
-  loadedRange,
-  account,
-  accounts,
-  onAccountChange,
-  level,
-  onLevelChange,
+  views,
+  view,
+  onViewChange,
+  range,
+  dateStart,
+  dateStop,
+  onRangeChange,
+  onApplyCustom,
+  onClearCustom,
 }: {
-  loadedRange: string;
-  account: string;
-  accounts: AccountOption[];
-  onAccountChange: (a: string) => void;
-  level: string;
-  onLevelChange: (l: string) => void;
+  views: ViewOption[];
+  view: string;
+  onViewChange: (v: string) => void;
+  range: string;
+  dateStart?: string;
+  dateStop?: string;
+  onRangeChange: (r: string) => void;
+  onApplyCustom: (start: string, stop: string) => void;
+  onClearCustom: () => void;
 }) {
-  const activeRange = normalizeRange(loadedRange);
-  const chips: AccountOption[] = [
-    { key: "all", label: "Consolidado", configured: true },
-    ...accounts,
-  ];
+  const [open, setOpen] = useState(range === "custom");
+  const [start, setStart] = useState(dateStart ?? "");
+  const [stop, setStop] = useState(dateStop ?? "");
+  const [err, setErr] = useState<string | null>(null);
+
+  function clickRange(key: string) {
+    if (key === "custom") {
+      setOpen((o) => !o);
+      onRangeChange("custom");
+      return;
+    }
+    setOpen(false);
+    setErr(null);
+    onRangeChange(key);
+  }
+
+  function apply() {
+    if (!start || !stop) {
+      setErr("Selecciona fecha de inicio y fin.");
+      return;
+    }
+    if (start > stop) {
+      setErr("La fecha de inicio no puede ser posterior a la fin.");
+      return;
+    }
+    setErr(null);
+    onApplyCustom(start, stop);
+  }
+
+  function clear() {
+    setStart("");
+    setStop("");
+    setErr(null);
+    onClearCustom();
+  }
+
+  function dotClass(key: string): string {
+    if (key === "gato_bucaramanga") return "alt";
+    return "";
+  }
 
   return (
-    <div className="filter-bar">
-      <div className="filter-group">
-        <span className="lbl">Rango</span>
-        <div className="seg" role="radiogroup" aria-label="Rango de fechas">
-          {RANGE_OPTIONS.map((r) => (
-            <button
-              key={r.id}
-              className={activeRange === r.id ? "active" : ""}
-              disabled={activeRange !== r.id}
-              title={
-                activeRange === r.id
-                  ? "Rango cargado actualmente"
-                  : "El rango se define al sincronizar (npm run meta:update)"
-              }
-            >
-              {r.label}
-            </button>
-          ))}
+    <div className="filter-bar" style={{ flexDirection: "column", alignItems: "stretch" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px 28px", alignItems: "center" }}>
+        <div className="filter-group">
+          <span className="lbl">Vista</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {views.map((v) => (
+              <button
+                key={v.key}
+                className={"account-chip " + dotClass(v.key) + (view === v.key ? " active" : "")}
+                onClick={() => onViewChange(v.key)}
+              >
+                <span className="dot" />
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="filter-group">
+          <span className="lbl">Rango</span>
+          <div className="seg" role="radiogroup" aria-label="Rango de fechas">
+            {RANGES.map((r) => (
+              <button
+                key={r.key}
+                className={range === r.key ? "active" : ""}
+                role="radio"
+                aria-checked={range === r.key}
+                onClick={() => clickRange(r.key)}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="filter-group">
-        <span className="lbl">Cuenta</span>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {chips.map((a) => (
-            <button
-              key={a.key}
-              className={
-                "account-chip " +
-                (a.alt ? "alt " : "") +
-                (account === a.key ? "active" : "")
-              }
-              disabled={!a.configured && a.key !== "all"}
-              onClick={() => onAccountChange(a.key)}
-              title={
-                !a.configured && a.key !== "all"
-                  ? "Cuenta no configurada"
-                  : undefined
-              }
-            >
-              <span className="dot" />
-              {a.label}
-            </button>
-          ))}
+      {open && (
+        <div className="custom-range">
+          <div className="date-field">
+            <label>Desde</label>
+            <input type="date" value={start} max={stop || undefined} onChange={(e) => setStart(e.target.value)} />
+          </div>
+          <div className="date-field">
+            <label>Hasta</label>
+            <input type="date" value={stop} min={start || undefined} onChange={(e) => setStop(e.target.value)} />
+          </div>
+          <button className="btn primary" onClick={apply}>Aplicar rango</button>
+          <button className="btn ghost" onClick={clear}>Limpiar</button>
+          {err && <span className="custom-range-err">{err}</span>}
         </div>
-      </div>
-
-      <div className="filter-group level">
-        <span className="lbl">Nivel</span>
-        <div className="seg" role="radiogroup" aria-label="Nivel de análisis">
-          {LEVELS.map((l) => (
-            <button
-              key={l}
-              className={level === l ? "active" : ""}
-              role="radio"
-              aria-checked={level === l}
-              onClick={() => onLevelChange(l)}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -119,8 +119,26 @@ export interface HeaderVM {
   brandName: string;
   subtitle: string;
   kicker: string;
-  lastUpdate: { label: string; status: Severity };
+  lastUpdate: { label: string; status: Severity; badge: string };
   connection: { label: string; status: Severity };
+}
+
+export interface RangeVM {
+  available: boolean;
+  requestedLabel: string;
+  loadedLabel: string | null;
+  suggestedCommand: string;
+}
+
+export interface UnclassifiedVM {
+  count: number;
+  campaigns: {
+    campaign_name: string;
+    campaign_id: string;
+    spend: string;
+    results: string;
+    reason: string;
+  }[];
 }
 
 export interface BannerVM {
@@ -132,6 +150,10 @@ export interface BannerVM {
 
 export interface DashboardVM {
   connected: boolean; // hay datos reales de Meta
+  appliedView: string;
+  availableViews: { key: string; label: string }[];
+  range: RangeVM;
+  unclassified: UnclassifiedVM;
   header: HeaderVM;
   banners: BannerVM[];
   exec: { works: ExecBlock; attn: ExecBlock; next: ExecBlock };
