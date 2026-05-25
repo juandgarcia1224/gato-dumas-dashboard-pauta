@@ -195,6 +195,18 @@ export default function DashboardShell() {
               <span className="h-rule" />
               <h3 className="h-section">Resumen ejecutivo · KPIs</h3>
               <span className="sub">{scopeLabel} · {vm.range.requestedLabel}</span>
+              <span
+                className={"badge " + (vm.resultsExact ? "ok" : "warn")}
+                style={{ marginLeft: "auto" }}
+                title={
+                  vm.resultsExact
+                    ? "Resultados y CPR exactos del rango (range summary)"
+                    : "Gasto exacto; resultados/CPR requieren sincronización agregada del rango"
+                }
+              >
+                <span className="dot" />
+                {vm.resultsExact ? "Resultados exactos" : "Resultados pendientes de sync"}
+              </span>
             </div>
             <KpiGrid items={vm.kpis} />
 

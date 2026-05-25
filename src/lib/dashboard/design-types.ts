@@ -156,6 +156,7 @@ export interface DashboardVM {
   availableViews: { key: string; label: string }[];
   availableMonths: { key: string; label: string }[];
   range: RangeVM;
+  resultsExact: boolean;
   pacingNote: string | null;
   unclassified: UnclassifiedVM;
   header: HeaderVM;

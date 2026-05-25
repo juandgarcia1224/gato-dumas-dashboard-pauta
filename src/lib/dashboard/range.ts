@@ -84,13 +84,11 @@ export function resolveRange(
   }
   if (key === "this_month") {
     const ym = today.slice(0, 7);
-    return { key, label: "Mes actual", start: monthStart(ym), stop: today, kind: "month", month: ym };
+    // Mes completo (monthStart..monthEnd) para casar con el range summary.
+    return { key, label: "Mes actual", start: monthStart(ym), stop: monthEnd(ym), kind: "month", month: ym };
   }
   if (/^\d{4}-\d{2}$/.test(key)) {
-    const start = monthStart(key);
-    const isCurrent = key === today.slice(0, 7);
-    const stop = isCurrent ? today : monthEnd(key);
-    return { key, label: monthLabel(key), start, stop, kind: "month", month: key };
+    return { key, label: monthLabel(key), start: monthStart(key), stop: monthEnd(key), kind: "month", month: key };
   }
   if (key === "custom") {
     if (!dateStart || !dateStop || dateStart > dateStop) return null;

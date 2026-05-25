@@ -20,6 +20,12 @@ import type {
 } from "../src/lib/meta/types";
 import { appendRows, upsertRows } from "../src/lib/sheets/writer";
 import { SHEET_TABS } from "../src/lib/sheets/schema";
+import { addDays, monthEnd, monthStart, todayBogota } from "../src/lib/dashboard/range";
+
+type SummaryRow = Record<string, unknown>;
+interface PullResult extends AccountPullResult {
+  summaries: SummaryRow[];
+}
 
 // ---------- args ----------
 function parseArgs(argv: string[]): Record<string, string> {
@@ -42,26 +48,55 @@ function parseArgs(argv: string[]): Record<string, string> {
 
 const PRESETS: DatePreset[] = ["today", "yesterday", "last_7d", "this_month"];
 
+/**
+ * Resuelve a FECHAS EXPLÍCITAS (para daily y range pull) + rangeKey.
+ * Los meses usan mes completo (monthStart..monthEnd) para casar con el
+ * range_key que busca el dashboard.
+ */
 function resolveRange(args: Record<string, string>): {
   range: DateRange;
   label: string;
-  month: string;
-  asOf: Date;
+  rangeKey: string;
 } {
+  let start: string;
+  let stop: string;
+  let label: string;
   if (args.dateStart && args.dateStop) {
-    return {
-      range: { dateStart: args.dateStart, dateStop: args.dateStop },
-      label: `${args.dateStart}..${args.dateStop}`,
-      month: args.dateStart.slice(0, 7),
-      asOf: new Date(`${args.dateStop}T12:00:00`),
-    };
+    start = args.dateStart;
+    stop = args.dateStop;
+    label = `${start}..${stop}`;
+  } else {
+    const preset = (PRESETS.includes(args.range as DatePreset) ? args.range : "this_month") as DatePreset;
+    const today = todayBogota();
+    if (preset === "today") {
+      start = today;
+      stop = today;
+    } else if (preset === "yesterday") {
+      start = addDays(today, -1);
+      stop = start;
+    } else if (preset === "last_7d") {
+      start = addDays(today, -6);
+      stop = today;
+    } else {
+      const ym = today.slice(0, 7);
+      start = monthStart(ym);
+      stop = monthEnd(ym);
+    }
+    label = preset;
   }
-  const preset = (PRESETS.includes(args.range as DatePreset)
-    ? args.range
-    : "this_month") as DatePreset;
-  const now = new Date();
-  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  return { range: { preset }, label: preset, month, asOf: now };
+  return { range: { dateStart: start, dateStop: stop }, label, rangeKey: `${start}..${stop}` };
+}
+
+function toSummaryRows(
+  rows: object[],
+  level: "campaign" | "adset" | "ad",
+  idField: string,
+  rangeKey: string,
+): SummaryRow[] {
+  return rows.map((row) => {
+    const r = row as Record<string, unknown>;
+    return { range_key: rangeKey, entity_level: level, entity_id: r[idField], ...r };
+  });
 }
 
 // ---------- pull de una cuenta ----------
@@ -70,48 +105,42 @@ async function pullAccount(
   groupKey: AccountGroupKey,
   adAccountId: string,
   range: DateRange,
+  rangeKey: string,
   pulledAt: string,
-): Promise<AccountPullResult> {
+): Promise<PullResult> {
   const group = getAccountGroup(groupKey)!;
   try {
-    const [campInsights, adsetInsights, adInsights] = await Promise.all([
-      fetchInsights(client, adAccountId, "campaign", range),
-      fetchInsights(client, adAccountId, "adset", range),
-      fetchInsights(client, adAccountId, "ad", range),
+    // 1) DAILY (time_increment=1): para spend por fecha, filtros y pacing.
+    // 2) RANGE agregado (sin time_increment): para results/CPR exactos.
+    const [campDaily, adsetDaily, adDaily, campRange, adsetRange, adRange] = await Promise.all([
+      fetchInsights(client, adAccountId, "campaign", range, true),
+      fetchInsights(client, adAccountId, "adset", range, true),
+      fetchInsights(client, adAccountId, "ad", range, true),
+      fetchInsights(client, adAccountId, "campaign", range, false),
+      fetchInsights(client, adAccountId, "adset", range, false),
+      fetchInsights(client, adAccountId, "ad", range, false),
     ]);
     const [campMeta, adsetMeta, adMeta] = await Promise.all([
       fetchEntityMeta(client, adAccountId, "campaign"),
       fetchEntityMeta(client, adAccountId, "adset"),
       fetchEntityMeta(client, adAccountId, "ad"),
     ]);
-    const adAccountName = campInsights[0]?.account_name ?? group.label;
-    return {
-      accountGroup: groupKey,
-      adAccountId,
-      adAccountName,
-      ok: true,
-      campaigns: campInsights.map((i) =>
-        toCampaignRow(i, groupKey, adAccountId, adAccountName, campMeta, pulledAt),
-      ),
-      adsets: adsetInsights.map((i) =>
-        toAdsetRow(i, groupKey, adAccountId, adsetMeta, pulledAt),
-      ),
-      ads: adInsights.map((i) =>
-        toAdRow(i, groupKey, adAccountId, adMeta, pulledAt),
-      ),
-    };
+    const adAccountName = campDaily[0]?.account_name ?? campRange[0]?.account_name ?? group.label;
+
+    const campaigns = campDaily.map((i) => toCampaignRow(i, groupKey, adAccountId, adAccountName, campMeta, pulledAt));
+    const adsets = adsetDaily.map((i) => toAdsetRow(i, groupKey, adAccountId, adsetMeta, pulledAt));
+    const ads = adDaily.map((i) => toAdRow(i, groupKey, adAccountId, adMeta, pulledAt));
+
+    const summaries: SummaryRow[] = [
+      ...toSummaryRows(campRange.map((i) => toCampaignRow(i, groupKey, adAccountId, adAccountName, campMeta, pulledAt)), "campaign", "campaign_id", rangeKey),
+      ...toSummaryRows(adsetRange.map((i) => toAdsetRow(i, groupKey, adAccountId, adsetMeta, pulledAt)), "adset", "adset_id", rangeKey),
+      ...toSummaryRows(adRange.map((i) => toAdRow(i, groupKey, adAccountId, adMeta, pulledAt)), "ad", "ad_id", rangeKey),
+    ];
+
+    return { accountGroup: groupKey, adAccountId, adAccountName, ok: true, campaigns, adsets, ads, summaries };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return {
-      accountGroup: groupKey,
-      adAccountId,
-      adAccountName: group.label,
-      ok: false,
-      error: message,
-      campaigns: [],
-      adsets: [],
-      ads: [],
-    };
+    return { accountGroup: groupKey, adAccountId, adAccountName: group.label, ok: false, error: message, campaigns: [], adsets: [], ads: [], summaries: [] };
   }
 }
 
@@ -121,7 +150,7 @@ export async function runUpdate(argv: string[]) {
   const meta = requireMetaEnv();
   requireGoogleEnv();
 
-  const { range, label } = resolveRange(args);
+  const { range, label, rangeKey } = resolveRange(args);
   const startedAt = new Date().toISOString();
   const runId = `run_${Date.now()}`;
   const client = new MetaClient({
@@ -144,7 +173,7 @@ export async function runUpdate(argv: string[]) {
   }
 
   // Pull por cuenta (independiente: si una falla, sigue la otra)
-  const results: AccountPullResult[] = [];
+  const results: PullResult[] = [];
   for (const t of targets) {
     process.stdout.write(`→ ${t.group.label} (${t.adAccountId}) ... `);
     const r = await pullAccount(
@@ -152,6 +181,7 @@ export async function runUpdate(argv: string[]) {
       t.group.key,
       t.adAccountId,
       range,
+      rangeKey,
       startedAt,
     );
     if (r.ok) {
@@ -178,11 +208,18 @@ export async function runUpdate(argv: string[]) {
     const rc = await upsertRows(SHEET_TABS.campaigns, allCampaigns, campKey);
     const ra = await upsertRows(SHEET_TABS.adsets, allAdsets, adsetKey);
     const rd = await upsertRows(SHEET_TABS.ads, allAds, adKey);
-    console.log("\n✓ Upsert RAW (histórico diario, sin borrar):");
-    console.log(`  campañas: +${rc.added} nuevas / ${rc.updated} actualizadas · total hoja ${rc.total}`);
+    console.log("\n✓ Upsert RAW diario (spend/filtros/pacing, sin borrar):");
+    console.log(`  campañas: +${rc.added} / ${rc.updated} act · total ${rc.total}`);
     console.log(`  adsets:   +${ra.added} / ${ra.updated} · total ${ra.total}`);
     console.log(`  ads:      +${rd.added} / ${rd.updated} · total ${rd.total}`);
-    console.log("  (alertas y pacing se calculan en el dashboard por rango)");
+
+    // RANGE SUMMARIES (results/CPR exactos del rango, sin sobreconteo diario)
+    const allSummaries = okResults.flatMap((r) => r.summaries);
+    if (allSummaries.length > 0) {
+      const sumKey = ["range_key", "account_group", "entity_level", "entity_id"];
+      const rs = await upsertRows(SHEET_TABS.rangeSummaries, allSummaries, sumKey);
+      console.log(`✓ Range summary (${rangeKey}): +${rs.added} / ${rs.updated} act · total ${rs.total}`);
+    }
   } else {
     console.log("\n⚠️  Todas las cuentas fallaron. No se modifican datos.");
   }

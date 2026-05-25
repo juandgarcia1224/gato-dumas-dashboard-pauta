@@ -18,11 +18,7 @@ import {
   type Kpis,
 } from "./metrics";
 import { inferSede, isViewKey, rowMatchesView, VIEWS, viewLabel, type Sede, type ViewKey } from "./sede";
-import {
-  aggregateDailyByEntity,
-  availableMonthsFrom,
-  spendByAccountInRange,
-} from "./aggregate";
+import { aggregateDailyByEntity, availableMonthsFrom } from "./aggregate";
 import { resolveRange, todayBogota, monthLabel, monthStart, monthEnd, daysInMonth } from "./range";
 import { buildCampaignAlerts, DEFAULT_ALERT_THRESHOLDS } from "./alerts";
 import { plannedBudgetByAccount } from "./pacing";
@@ -40,6 +36,7 @@ export interface Notice {
     | "read_error"
     | "range_unavailable"
     | "snapshot_only"
+    | "results_pending"
     | "unclassified";
   message: string;
 }
@@ -137,6 +134,7 @@ export interface DashboardPayload {
   availableMonths: { key: string; label: string }[];
   range: RangeInfo;
   snapshotOnly: boolean;
+  resultsExact: boolean;
   pacingNote: string | null;
   status: {
     metaReady: boolean;
@@ -162,10 +160,11 @@ export interface RawTabs {
   updateLog: Record<string, string>[];
   mapping: Record<string, string>[];
   mediaPlan: Record<string, string>[];
+  rangeSummaries: Record<string, string>[];
 }
 
 export function emptyTabs(): RawTabs {
-  return { campaigns: [], adsets: [], ads: [], updateLog: [], mapping: [], mediaPlan: [] };
+  return { campaigns: [], adsets: [], ads: [], updateLog: [], mapping: [], mediaPlan: [], rangeSummaries: [] };
 }
 
 function num(v: string | undefined): number {
@@ -206,9 +205,7 @@ function buildLivePacing(
   view: ViewKey,
   month: string | undefined,
   kind: string,
-  dailyCampaignRows: Record<string, string>[],
-  start: string,
-  stop: string,
+  actual: Record<string, number>,
   mediaPlan: Record<string, string>[],
   today: string,
 ): { rows: PacingView[]; note: string | null } {
@@ -219,7 +216,6 @@ function buildLivePacing(
     return { rows: [], note: "El presupuesto está cargado a nivel Gato Colombia, no por sede." };
   }
   const planned = plannedBudgetByAccount(mediaPlan, month);
-  const actual = spendByAccountInRange(dailyCampaignRows, start, stop);
   const dim = daysInMonth(month);
   const isCurrent = month === today.slice(0, 7);
   const dom = isCurrent ? Math.min(Number(today.slice(8, 10)), dim) : dim;
@@ -299,33 +295,50 @@ export function buildDashboardPayload(input: {
   const resolved = resolveRange(reqKey, input.dateStart, input.dateStop, today);
   const reqLabel = resolved?.label ?? reqKey;
 
-  // ¿Hay datos diarios para el rango?
-  const aggCampaignsRaw = resolved
-    ? aggregateDailyByEntity(tabs.campaigns, "campaign_id", resolved.start, resolved.stop)
-    : [];
-  const available = aggCampaignsRaw.length > 0;
-  const snapshotOnly = !hasDaily && hasSnapshot;
+  // ¿Hay datos para el rango? Prioridad: range summary EXACTO; si no, daily.
+  const rangeKey = resolved ? `${resolved.start}..${resolved.stop}` : "";
+  const nullRes = (r: Record<string, string>): Record<string, string> => ({ ...r, results: "", cost_per_result: "" });
+  const inKey = (level: string) =>
+    tabs.rangeSummaries.filter((r) => r.range_key === rangeKey && r.entity_level === level);
+
+  const sumCampRaw = resolved ? inKey("campaign") : [];
+  const summaryAvailable = sumCampRaw.length > 0;
+  const dailyCampRaw = resolved ? aggregateDailyByEntity(tabs.campaigns, "campaign_id", resolved.start, resolved.stop) : [];
+  const dailyAvailable = dailyCampRaw.length > 0;
+
+  const available = summaryAvailable || dailyAvailable;
+  const resultsExact = summaryAvailable;
+  const snapshotOnly = !hasDaily && !summaryAvailable && hasSnapshot;
 
   if (snapshotOnly) {
-    notices.push({
-      level: "warning",
-      code: "snapshot_only",
-      message: "Hay un snapshot agregado pero NO histórico diario. Carga histórico diario para filtrar por mes/fecha.",
-    });
-  } else if (envStatus.sheetsReady && !hasDaily && !hasSnapshot && !input.readError) {
+    notices.push({ level: "warning", code: "snapshot_only", message: "Hay un snapshot agregado pero NO histórico diario. Carga histórico diario para filtrar por mes/fecha." });
+  } else if (envStatus.sheetsReady && !available && !hasSnapshot && !input.readError) {
     notices.push({ level: "info", code: "no_data", message: "Sin datos cargados. Ejecuta `npm run meta:update`." });
-  } else if (hasDaily && resolved && !available) {
-    notices.push({ level: "info", code: "range_unavailable", message: `No hay datos diarios cargados para "${reqLabel}".` });
+  } else if (resolved && !available) {
+    notices.push({ level: "info", code: "range_unavailable", message: `No hay datos cargados para "${reqLabel}".` });
+  } else if (available && !summaryAvailable) {
+    notices.push({ level: "info", code: "results_pending", message: `Gasto y filtros disponibles, pero los resultados exactos de "${reqLabel}" requieren sincronización agregada del rango.` });
   }
 
-  // --- Agregados por rango (una fila por entidad) ---
-  const allRecords: CampaignRecord[] = available ? parseCampaignRows(aggCampaignsRaw) : [];
+  // Fuente de filas: summary exacto (results correctos) o daily (results en blanco).
+  const campaignsRaw = available
+    ? summaryAvailable
+      ? sumCampRaw
+      : dailyCampRaw.map(nullRes)
+    : [];
+
+  // --- Registros por entidad ---
+  const allRecords: CampaignRecord[] = parseCampaignRows(campaignsRaw);
   for (const c of allRecords) c.sede = resolveSede(c.account_group, [c.campaign_name], c.campaign_id);
 
   const viewRecords = allRecords.filter((c) => rowMatchesView(c.account_group, c.sede ?? "unclassified", view));
 
-  const aggAdsetsRaw = available && resolved ? aggregateDailyByEntity(tabs.adsets, "adset_id", resolved.start, resolved.stop) : [];
-  const adsets: AdsetView[] = aggAdsetsRaw
+  const adsetsRaw = !available
+    ? []
+    : summaryAvailable
+      ? inKey("adset")
+      : aggregateDailyByEntity(tabs.adsets, "adset_id", resolved!.start, resolved!.stop).map(nullRes);
+  const adsets: AdsetView[] = adsetsRaw
     .map((r) => {
       const sede = resolveSede(r.account_group, [r.adset_name, r.campaign_name], r.campaign_id);
       return {
@@ -338,8 +351,12 @@ export function buildDashboardPayload(input: {
     })
     .filter((r) => rowMatchesView(String(r.account_group), r.sede, view));
 
-  const aggAdsRaw = available && resolved ? aggregateDailyByEntity(tabs.ads, "ad_id", resolved.start, resolved.stop) : [];
-  const ads: AdView[] = aggAdsRaw
+  const adsRaw = !available
+    ? []
+    : summaryAvailable
+      ? inKey("ad")
+      : aggregateDailyByEntity(tabs.ads, "ad_id", resolved!.start, resolved!.stop).map(nullRes);
+  const ads: AdView[] = adsRaw
     .map((r) => {
       const sede = resolveSede(r.account_group, [r.ad_name, r.campaign_name], r.campaign_id);
       return {
@@ -378,8 +395,12 @@ export function buildDashboardPayload(input: {
   const accounts = buildAccountSummaries(allRecords, envStatus.metaAccounts, criticalByAccount);
 
   // --- Pacing EN VIVO (mensual) ---
+  const actualByAccount: Record<string, number> = {};
+  for (const r of allRecords) {
+    actualByAccount[r.account_group] = (actualByAccount[r.account_group] ?? 0) + r.spend;
+  }
   const { rows: pacing, note: pacingNote } = available && resolved
-    ? buildLivePacing(view, resolved.month, resolved.kind, tabs.campaigns, resolved.start, resolved.stop, tabs.mediaPlan, today)
+    ? buildLivePacing(view, resolved.month, resolved.kind, actualByAccount, tabs.mediaPlan, today)
     : { rows: [], note: null };
 
   // --- Sin clasificar (Gato Colombia) ---
@@ -406,6 +427,7 @@ export function buildDashboardPayload(input: {
       suggestedCommand: suggestedCommand(reqKey),
     },
     snapshotOnly,
+    resultsExact,
     pacingNote,
     status: {
       metaReady: envStatus.metaReady,

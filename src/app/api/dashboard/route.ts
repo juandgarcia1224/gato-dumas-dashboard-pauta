@@ -42,6 +42,7 @@ export async function GET(req: Request) {
       SHEET_TABS.updateLog,
       SHEET_TABS.mapping,
       SHEET_TABS.mediaPlan,
+      SHEET_TABS.rangeSummaries,
     ]);
     const tabs: RawTabs = {
       campaigns: data[SHEET_TABS.campaigns] ?? [],
@@ -50,6 +51,7 @@ export async function GET(req: Request) {
       updateLog: data[SHEET_TABS.updateLog] ?? [],
       mapping: data[SHEET_TABS.mapping] ?? [],
       mediaPlan: data[SHEET_TABS.mediaPlan] ?? [],
+      rangeSummaries: data[SHEET_TABS.rangeSummaries] ?? [],
     };
     return NextResponse.json(buildDashboardPayload({ ...common, tabs }));
   } catch (err) {

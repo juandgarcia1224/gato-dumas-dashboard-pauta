@@ -486,6 +486,8 @@ const BANNER_META: Record<
   no_data: { title: "Sin datos cargados", icon: "database" },
   no_last_update: { title: "Última actualización pendiente", icon: "clock" },
   range_unavailable: { title: "Rango sin datos", icon: "clock" },
+  snapshot_only: { title: "Solo snapshot agregado", icon: "database" },
+  results_pending: { title: "Resultados pendientes de sync exacta", icon: "info" },
   unclassified: { title: "Campañas sin sede", icon: "info" },
 };
 
@@ -587,6 +589,7 @@ export function buildDashboardVM(payload: DashboardPayload): DashboardVM {
     appliedView: payload.appliedView,
     availableViews: payload.availableViews,
     availableMonths: payload.availableMonths,
+    resultsExact: payload.resultsExact,
     pacingNote: payload.pacingNote,
     range: {
       available: payload.range.available,
