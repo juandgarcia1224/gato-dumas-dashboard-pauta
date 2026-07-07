@@ -36,3 +36,5 @@ secrets/
 
 # typescript
 *.tsbuildinfo
+.vercel
+.env*
