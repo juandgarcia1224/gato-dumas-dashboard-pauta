@@ -1,0 +1,69 @@
+{
+  "_comment": "Mapeo de respaldo curso↔campaña para 5 Gatos Bucaramanga. Se usa SOLO si GOOGLE_SHEET_MAPEO_5GATOS_ID no está configurado o el Sheet no responde. La fuente de verdad es el Google Sheet 'Mapeo_Cursos_5Gatos_Bucaramanga' (lo edita Ruzmery). Patrones sembrados desde los nombres reales de campañas de act_248616958293893 (julio 2026).",
+  "rules": [
+    {
+      "pattern_regex": "cursos?\\s*cortos?",
+      "campaign_id_exacto": "",
+      "tipo": "Curso",
+      "nombre_normalizado": "Cursos Cortos",
+      "activo": true,
+      "notas": "Ej: 'Ventas | Cursos cortos | BUC 2026'"
+    },
+    {
+      "pattern_regex": "clase\\s*[uú]nica|masterclass",
+      "campaign_id_exacto": "",
+      "tipo": "Curso",
+      "nombre_normalizado": "Clases Únicas / Masterclass",
+      "activo": true,
+      "notas": "Ej: 'CGD_Clase-única-Papá-Parrillero', 'Masterclass_MoniRios_BGA'"
+    },
+    {
+      "pattern_regex": "diplomado.*pasteler[ií]a|pasteler[ií]a.*diplomado|diplomadopasteleria",
+      "campaign_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Diplomado Pastelería",
+      "activo": true,
+      "notas": "Ej: 'Ventas | Diplomados| Pastelería', 'GDC_Meta_Diplomado-Pasteleria'"
+    },
+    {
+      "pattern_regex": "diplomado.*gerencia|gerencia\\s*y\\s*montaje|gerenciaymontaje",
+      "campaign_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Diplomado Gerencia y Montaje",
+      "activo": true,
+      "notas": "Ej: 'Ventas | Diplomado Gerencia| Online', 'CDG-GerenciayMontaje-BGA'"
+    },
+    {
+      "pattern_regex": "diplomado.*t[eé]cnicas|t[eé]cnicas\\s*b[aá]sicas|tbcpp",
+      "campaign_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Diplomado Técnicas Básicas",
+      "activo": true,
+      "notas": "Ej: 'Diplomado_ventas_técnicas básicas', 'Ventas | Diplomados | TBCPP'"
+    },
+    {
+      "pattern_regex": "diplomado",
+      "campaign_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Diplomados (general)",
+      "activo": true,
+      "notas": "Comodín: cualquier diplomado no cubierto arriba. Mantener al final de los diplomados."
+    },
+    {
+      "pattern_regex": "programas?\\b|\\bgdc\\b",
+      "campaign_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Programas GDC",
+      "activo": true,
+      "notas": "Ej: 'Programas | BUC | Mayo 2026', 'Programas | Bucaramanga | GDC'"
+    },
+    {
+      "pattern_regex": "open\\s*house",
+      "campaign_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Open House",
+      "activo": true,
+      "notas": "Evento de captación para programas."
+    }
+  ]
+}
