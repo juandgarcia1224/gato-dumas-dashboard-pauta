@@ -15,6 +15,8 @@ export const SHEET_TABS = {
   updateLog: "07_Update_Log",
   mapping: "08_Campaign_Mapping",
   rangeSummaries: "10_Meta_Range_Summaries",
+  fiveGatosSnapshot: "11_5Gatos_Snapshot",
+  fiveGatosCronLog: "12_5Gatos_Cron_Log",
 } as const;
 
 export type SheetTab = (typeof SHEET_TABS)[keyof typeof SHEET_TABS];
@@ -217,6 +219,36 @@ export const HEADERS: Record<SheetTab, string[]> = {
     "results",
     "cost_per_result",
     "actions_json",
+  ],
+  [SHEET_TABS.fiveGatosSnapshot]: [
+    "snapshot_at",
+    "month",
+    "campaign_id",
+    "campaign_name",
+    "tipo",
+    "nombre_normalizado",
+    "status",
+    "effective_status",
+    "spend",
+    "impressions",
+    "clicks",
+    "ctr",
+    "cpc",
+    "cpm",
+    "results_type",
+    "results",
+    "cost_per_result",
+    "date_start",
+    "date_stop",
+  ],
+  [SHEET_TABS.fiveGatosCronLog]: [
+    "run_at",
+    "status",
+    "months",
+    "campaigns_count",
+    "unclassified_count",
+    "duration_ms",
+    "error_message",
   ],
 };
 

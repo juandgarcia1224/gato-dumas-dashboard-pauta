@@ -50,12 +50,12 @@
       "notas": "Comodín: cualquier diplomado no cubierto arriba. Mantener al final de los diplomados."
     },
     {
-      "pattern_regex": "programas?\\b|\\bgdc\\b",
+      "pattern_regex": "p(?:ro|or)gramas?\\b|\\bgdc\\b",
       "campaign_id_exacto": "",
       "tipo": "Programa",
       "nombre_normalizado": "Programas GDC",
       "activo": true,
-      "notas": "Ej: 'Programas | BUC | Mayo 2026', 'Programas | Bucaramanga | GDC'"
+      "notas": "Ej: 'Programas | BUC | Mayo 2026', 'Programas | Bucaramanga | GDC'. Cubre también el typo real 'Porgramas' (campaña julio 2026)."
     },
     {
       "pattern_regex": "open\\s*house",

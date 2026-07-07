@@ -12,7 +12,9 @@
     "sheets:setup": "tsx scripts/setup-sheets.ts",
     "meta:update": "tsx scripts/update-meta.ts",
     "meta:update:manual": "tsx scripts/update-meta-manual.ts",
-    "pacing:recompute": "tsx scripts/recompute-pacing.ts"
+    "pacing:recompute": "tsx scripts/recompute-pacing.ts",
+    "mapping:setup": "tsx scripts/setup-mapping-sheet.ts",
+    "test:mapping": "tsx --test src/lib/mapping/__tests__/courses.test.ts"
   },
   "dependencies": {
     "googleapis": "^144.0.0",
