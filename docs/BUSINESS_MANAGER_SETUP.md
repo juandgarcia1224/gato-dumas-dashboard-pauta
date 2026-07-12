@@ -25,78 +25,76 @@ no expiran mientras el BM siga activo.
 
 ---
 
-## Paso 1 — Crear el Business Manager
+> **Nota:** Meta renombró "Business Manager" a **"Business Portfolio"** en la UI.
+> Los pasos son los mismos, solo cambia el nombre en pantalla.
 
-1. Entra a <https://business.facebook.com/overview> con la cuenta personal de
-   Facebook que ya administra la ad account `act_248616958293893`.
-2. Botón **"Crear cuenta"** (arriba a la derecha).
-3. Datos:
-   - **Nombre de la empresa:** `CookMinds Agency` (o el que prefieras — es
-     interno, no lo ve el cliente).
-   - **Tu nombre:** el tuyo.
-   - **Email empresarial:** `juandgarcia1224@gmail.com` (o el que uses para
-     temas de trabajo — llegan notificaciones aquí).
-4. **Siguiente → Enviar.**
+## Paso 1 — Business Portfolio (YA EXISTE)
 
-> Si ya tienes un Business Manager creado (por tu cuenta o por CookMinds),
-> úsalo. No hace falta crear uno nuevo. Salta al paso 2.
+Ya tienes un Business Portfolio configurado:
+- **Nombre:** `Gato Dumas Bucaramanga`
+- **business_id:** `915796593203003`
+- **Ad account `act_248616958293893` ya adentro.**
+
+Salta directo al Paso 2. Verificado con lectura de tu propia sesión (2026-07-12).
 
 ---
 
-## Paso 2 — Agregar la ad account al Business Manager
+## Paso 2 — Crear la app en developers.facebook.com
 
-1. En Business Manager → menú lateral → **Configuración del negocio**
-   (Business Settings) → engrane arriba a la izquierda.
-2. **Cuentas** → **Cuentas publicitarias** → botón **Agregar**.
-3. Elegir **"Agregar una cuenta publicitaria"** (NO "solicitar acceso" —
-   solicitar es para cuentas de otros).
-4. Pegar el ID: **`248616958293893`** (sin el prefijo `act_`).
-5. Confirmar.
+Tus 2 apps existentes están vinculadas a otros portfolios (CookMinds, Fancy Smiles).
+Necesitas una app NUEVA vinculada específicamente a "Gato Dumas Bucaramanga".
 
-> Si sale error "esta cuenta ya pertenece a otro BM": es porque ya está en
-> otro Business. Entra a **Configuración del negocio → Solicitar acceso** en
-> vez de "agregar", y el dueño actual debe aprobarte. Si el dueño eres tú
-> mismo desde otra cuenta, mueve la ad account primero.
+1. Entra a <https://developers.facebook.com/apps> → **"Crear app"**.
+2. **Detalles:** nombre `Dashboard 5 Gatos`, correo de contacto ya viene precargado
+   → Siguiente.
+3. **Casos de uso:** elige la opción relacionada con **anuncios / Marketing API**
+   (u "Otro" si no aparece explícito) → Siguiente.
+4. **Negocio (CRÍTICO):** selecciona explícitamente **`Gato Dumas Bucaramanga`**
+   (no CookMinds ni Fancy Smiles) → Siguiente.
+5. Completa "Requisitos" → Resumen → **Crear app**.
+6. Dentro del panel: **Agregar producto → Marketing API → Configurar**.
+
+> No necesitas pasar la app a modo "Live" ni pedir App Review. Con acceso estándar
+> a `ads_read`/`read_insights` sobre TU propia cuenta, la app puede quedarse
+> "En desarrollo" indefinidamente (confirmado con doc Meta mayo-2026).
 
 ---
 
 ## Paso 3 — Crear el System User
 
-1. En **Configuración del negocio** → menú lateral **Usuarios** → **Usuarios
-   del sistema** (System Users).
-2. Botón **Agregar** → nombre: **`dashboard-5gatos`** → rol: **Admin**.
-   - *Admin* es lo más simple. Si prefieres restringir, elige *Empleado*
-     y en el paso 4 dale solo permisos de lectura de anuncios.
-3. Guardar.
+1. Entra a <https://business.facebook.com> → Configuración del negocio
+   (con **Gato Dumas Bucaramanga** seleccionado arriba).
+2. Menú lateral: **Usuarios → Usuarios del sistema** → botón **"+ Agregar"**.
+3. Datos:
+   - Nombre: `dashboard-5gatos`
+   - **Rol: Empleado** (mínimo privilegio — no elijas Administrador; el admin
+     del sistema debería reservarse para tareas administrativas, no para
+     llamadas API de solo lectura).
+4. Guardar.
 
 ---
 
-## Paso 4 — Dar acceso a la ad account al System User
+## Paso 4 — Asignar la ad account al System User (solo lectura)
 
-1. Ya en la ficha del System User `dashboard-5gatos` → botón **Asignar
-   activos** (Assign Assets).
-2. Elegir **Cuentas publicitarias** → seleccionar `act_248616958293893`.
-3. Permisos: activa **"Administrar campañas"** o mínimo **"Ver rendimiento"**.
-   - Para el dashboard solo necesitamos **lectura**, activa "Ver rendimiento".
-4. Guardar cambios.
+1. Clic en el nombre del system user recién creado → **"Asignar activos"**.
+2. Pestaña **Cuentas publicitarias** → selecciona `act_248616958293893`.
+3. Rol de acceso: **"Analista"** (solo lectura) — NO "Acceso total".
+   Suficiente para el dashboard y evita permisos innecesarios.
+4. Guardar.
 
 ---
 
 ## Paso 5 — Generar el token permanente
 
-1. Sigue en la ficha del System User → botón **Generar nuevo token** (Generate
-   New Token).
-2. Selecciona la app:
-   - Si no tienes una app: haz clic en el link que dice "crear una app". Elige
-     tipo **Business**, nombre `Dashboard 5 Gatos`, categoría `Business`. No
-     necesitas revisar la app.
-   - Si ya tienes una app en <https://developers.facebook.com/apps/>, úsala.
-3. Permisos a marcar:
-   - `ads_read` ✅ (obligatorio)
-   - `read_insights` ✅ (obligatorio)
-   - `business_management` ✅ (recomendado)
-4. **Caducidad del token:** elige **"Nunca"** (Never).
-5. Copiar el token que aparece. **Empieza con `EAAB...` o `EAAG...`.**
+1. Sigue en la ficha del System User → **"Generar nuevo token"**.
+2. **Selecciona la app** que creaste en el Paso 2 (`Dashboard 5 Gatos`).
+3. **Vencimiento del token: "Nunca"**.
+4. Permisos a marcar:
+   - `ads_read` ✅
+   - `read_insights` ✅
+   - `business_management` ✅
+5. **Generar token → COPIAR EL TOKEN INMEDIATAMENTE.** Meta no lo vuelve a
+   mostrar completo después. Empieza con `EAAB...` o `EAAG...`.
 
 > ⚠️ Este token es sensible. No lo pegues en Slack, ni email, ni Notion.
 > Lo guardaremos solo en Vercel (variables de entorno cifradas).

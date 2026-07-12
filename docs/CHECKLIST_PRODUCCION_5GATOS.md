@@ -6,17 +6,39 @@ solo Juan puede hacer. Marca cada casilla en orden.
 
 ---
 
-## 1. Token permanente de Meta (BLOQUEANTE — el token de dev ya venció)
+## 1. Token permanente de Meta (BLOQUEADO — política Meta 2026)
 
-- [ ] Seguir `docs/BUSINESS_MANAGER_SETUP.md` (Business Manager + System User)
-      y generar el token permanente con acceso de **lectura** a
-      `act_248616958293893`.
-- [ ] Guardarlo en Vercel como **`META_ACCESS_TOKEN_5GATOS`**.
-- [ ] Para desarrollo local: pegar un token (aunque sea corto) en
-      `.env.local` → `META_ACCESS_TOKEN=...`.
-- Nota: el token que dejaste para desarrollo expiró el 2026-07-07 06:00 PDT
-  (era de sesión corta, no de 60 días). Mientras no haya token, `/5gatos`
-  muestra "Estamos actualizando los datos" y el cron falla con log claro.
+**Estado 2026-07-12:** App y System User CREADOS. Bloqueado en la generación
+del token porque Meta ahora exige aprobación de un segundo admin del portfolio
+para tokens permanentes de System User (política nueva 2026, no depende de
+los permisos solicitados).
+
+**Ya está listo:**
+- App **"Dashboard 5 Gatos"** vinculada al portfolio Gato Dumas Bucaramanga
+  (App ID `1039929148547583`).
+- System User **`dashboard-5gatos`** (ID `61592010805228`) con rol Empleado.
+- Ad account `act_248616958293893` asignada al System User con rol Analista
+  (solo lectura).
+- Producto **Marketing API** configurado en la app.
+
+**Falta desbloquear:**
+- [ ] Agregar segundo admin al portfolio Gato Dumas Bucaramanga (candidatas:
+      Ruzmery `ramaya@gatodumas.com` o Adriana `adrianaduarteloi@gmail.com`).
+      Requiere que tengan cuenta Facebook.
+- [ ] Ese admin aprueba la solicitud de token desde su notificación.
+- [ ] Copiar token, subir a Vercel como **`META_ACCESS_TOKEN_5GATOS`**:
+      ```bash
+      cd /Users/mac/gato-dumas-dashboard
+      vercel env add META_ACCESS_TOKEN_5GATOS production
+      vercel env add META_ACCESS_TOKEN_5GATOS preview
+      vercel --prod
+      ```
+- [ ] Opcional: retirar al segundo admin después de aprobar (el token queda
+      válido para siempre, no depende de que el admin siga).
+
+**Mientras tanto:** `/5gatos` muestra "Estamos actualizando los datos" en la
+sección Meta. Login, Sheet de mapeo, allowlist y export XLSX (estructura) SÍ
+funcionan.
 
 ## 2. Sheet de mapeo curso↔campaña (1 minuto)
 
