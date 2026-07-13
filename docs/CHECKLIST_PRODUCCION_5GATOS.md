@@ -40,14 +40,30 @@ los permisos solicitados).
 sección Meta. Login, Sheet de mapeo, allowlist y export XLSX (estructura) SÍ
 funcionan.
 
-## 2. Sheet de mapeo curso↔campaña (1 minuto)
+## 2. Sheet de mapeo curso↔ADSET (migrado 2026-07-12)
 
-El Sheet **ya existe** con estructura y 8 reglas sembradas:
+> **Modelo nuevo:** 1 adset = 1 curso o programa. El mapeo clasifica ADSETS
+> (no campañas). Detalle completo en `docs/ADSET_MAPPING_5GATOS.md`.
+
+El Sheet **ya existe, migrado al esquema adset**:
 
 - Nombre: `Mapeo_Cursos_5Gatos_Bucaramanga`
 - ID: `1FOpmuIioSFHWATE6ixRcG5abg9CefjtYaYYj3V6PIhs`
 - URL: <https://docs.google.com/spreadsheets/d/1FOpmuIioSFHWATE6ixRcG5abg9CefjtYaYYj3V6PIhs/edit>
 - Dueño: `cookmindsagency@gmail.com` (quedó en su Drive)
+
+Esquema hoja `Mapeo` (header fila 1):
+`pattern_regex | adset_id_exacto | tipo | nombre_normalizado | activo | notas | legacy_campaign`
+
+- `pattern_regex` regexea sobre el **nombre del ADSET** (case-insensitive).
+- `adset_id_exacto` = match literal por id de adset (gana sobre el regex).
+- `legacy_campaign=TRUE` → regla del modelo viejo (nombres de CAMPAÑA); el
+  matcher la **ignora**. Las 8 reglas originales quedaron así marcadas (no se
+  borró nada) y hay 13 reglas nuevas a nivel adset sembradas desde los
+  nombres reales de la cuenta.
+- Hoja `Sin_Clasificar` ahora registra adsets:
+  `fecha_iso | adset_id | adset_name | campaign_id | campaign_name | account_id | status | notas`
+- Hoja `README` (dentro del Sheet) documenta el esquema para Ruzmery.
 
 Pendiente (desde la cuenta cookmindsagency, botón **Compartir**):
 
@@ -57,10 +73,12 @@ Pendiente (desde la cuenta cookmindsagency, botón **Compartir**):
       y no puede escribir en `Sin_Clasificar`).
 - [ ] Compartir como **Editor** con `juandgarcia1224@gmail.com`.
 - [ ] Compartir como **Editor** con el correo de **Ruzmery** (ella mantiene
-      la hoja `Mapeo`: agrega filas con regex o campaign_id cuando aparezcan
-      campañas nuevas; `Sin_Clasificar` se llena sola desde el dashboard).
-- [ ] Opcional: `npx tsx scripts/setup-mapping-sheet.ts` re-verifica hojas y
-      headers (idempotente; con el ID ya puesto en `.env.local` no crea nada nuevo).
+      la hoja `Mapeo`: agrega filas con regex o adset_id cuando aparezcan
+      adsets nuevos; `Sin_Clasificar` se llena sola desde el dashboard).
+- [ ] Ruzmery: revisar las 8 filas `legacy_campaign=TRUE` — si el patrón
+      también sirve para nombres de adset, cambiar a FALSE; si no, dejarla.
+- [ ] Opcional: `npx tsx scripts/setup-mapping-sheet.ts` re-verifica hojas,
+      headers y migración (idempotente).
 
 Alternativa si prefieres que el Sheet lo posea el service account: habilitar
 la **Google Drive API** en el proyecto `cookminds-dashboards`
@@ -106,7 +124,8 @@ Settings → Environment Variables (Production + Preview):
 ## 6. Verificar el cron
 
 - [ ] Manual: `curl -H "Authorization: Bearer $CRON_SECRET" https://<url>/api/cron/refresh-5gatos`
-      → `{"ok":true,...}` y filas en `11_5Gatos_Snapshot` del Sheet PROD.
+      → `{"ok":true,"nivel":"adset",...}` y filas en `13_5Gatos_Adsets_Snapshot`
+      del Sheet PROD (la hoja 11, nivel campaña, queda como histórico legacy).
 - [ ] El cron corre **1 vez al día (6:00 a.m. Bogotá)** — el plan Hobby de
       Vercel no permite más frecuencia. Con plan Pro, cambiar `vercel.json`
       a `"0 */3 * * *"` (cada 3 h, como se pidió originalmente). **Solo corre
