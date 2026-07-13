@@ -393,12 +393,22 @@ const REVALIDATE_SECONDS = 10 * 60;
 export async function getFiveGatosMonth(month: string): Promise<FiveGatosResult> {
   const safeMonth = isValidMonth(month) ? month : currentMonthBogota();
   try {
-    const cached = unstable_cache(
-      () => fetchFiveGatosMonthUncached(safeMonth),
-      ["5gatos-month-adsets", safeMonth],
-      { revalidate: REVALIDATE_SECONDS, tags: ["5gatos-data"] },
-    );
-    const data = await cached();
+    let data: FiveGatosMonthData;
+    try {
+      const cached = unstable_cache(
+        () => fetchFiveGatosMonthUncached(safeMonth),
+        ["5gatos-month-adsets", safeMonth],
+        { revalidate: REVALIDATE_SECONDS, tags: ["5gatos-data"] },
+      );
+      data = await cached();
+    } catch (err) {
+      // Fuera del runtime de Next (scripts/tests) unstable_cache no tiene
+      // incrementalCache: caemos a la lectura directa. Cualquier otro error
+      // (Meta, token) NO se reintenta: sube al catch externo.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("incrementalCache")) throw err;
+      data = await fetchFiveGatosMonthUncached(safeMonth);
+    }
     return { ok: true, data };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
