@@ -1,15 +1,20 @@
 /**
- * Sistema de mapeo curso↔campaña · 5 Gatos Bucaramanga.
+ * Sistema de mapeo curso↔ADSET · 5 Gatos Bucaramanga.
+ *
+ * Modelo: 1 adset = 1 curso o programa (el nombre del adset lleva el nombre
+ * del curso). Las campañas son contenedores y NO se usan para clasificar.
  *
  * Fuente de verdad: Google Sheet `Mapeo_Cursos_5Gatos_Bucaramanga`
  * (env GOOGLE_SHEET_MAPEO_5GATOS_ID), hoja "Mapeo". Lo mantiene Ruzmery.
  * Respaldo: `fallback.json` (si el Sheet no está configurado o no responde).
  *
  * Reglas de matching:
- *   1. Primero `campaign_id_exacto` (match literal por id de Meta).
- *   2. Luego cada `pattern_regex` (case-insensitive) en el ORDEN de la hoja,
- *      solo filas con activo=TRUE.
- *   3. Si nada matchea → null (el caller registra en Sin_Clasificar).
+ *   1. Primero `adset_id_exacto` (match literal por id de adset de Meta).
+ *   2. Luego cada `pattern_regex` (case-insensitive) contra el ADSET NAME,
+ *      en el ORDEN de la hoja, solo filas con activo=TRUE.
+ *   3. Filas con legacy_campaign=TRUE son reglas del modelo viejo (nivel
+ *      campaña) y se IGNORAN hasta que Ruzmery las revise.
+ *   4. Si nada matchea → null (el caller registra en Sin_Clasificar).
  */
 
 import { unstable_cache } from "next/cache";
@@ -18,10 +23,11 @@ import { arrayToObjects } from "../sheets/schema";
 import fallbackJson from "./fallback.json";
 import {
   MAPPING_TABS,
+  SIN_CLASIFICAR_GID,
   type MappingMatch,
   type MappingRule,
   type MappingTipo,
-  type UnclassifiedCampaign,
+  type UnclassifiedAdset,
 } from "./types";
 
 const MAPPING_CACHE_SECONDS = 15 * 60; // 15 minutos
@@ -51,23 +57,31 @@ async function fetchMappingFromSheet(): Promise<MappingRule[]> {
     const sheets = getSheetsClient();
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${MAPPING_TABS.mapeo}!A1:F`,
+      range: `${MAPPING_TABS.mapeo}!A1:G`,
       valueRenderOption: "UNFORMATTED_VALUE",
     });
     const rows = arrayToObjects((res.data.values ?? []) as unknown[][]);
     const rules: MappingRule[] = rows
-      .filter((r) => (r.pattern_regex ?? "") !== "" || (r.campaign_id_exacto ?? "") !== "")
+      .filter(
+        (r) =>
+          (r.pattern_regex ?? "") !== "" ||
+          (r.adset_id_exacto ?? r.campaign_id_exacto ?? "") !== "",
+      )
       .map((r) => ({
         pattern_regex: String(r.pattern_regex ?? "").trim(),
-        campaign_id_exacto: String(r.campaign_id_exacto ?? "").trim(),
+        // Compat: si la hoja aún tiene el header viejo `campaign_id_exacto`,
+        // lo leemos igual (pero esas filas deberían venir con legacy_campaign=TRUE).
+        adset_id_exacto: String(r.adset_id_exacto ?? r.campaign_id_exacto ?? "").trim(),
         tipo: normalizeTipo(String(r.tipo ?? "Curso")),
         nombre_normalizado: String(r.nombre_normalizado ?? "").trim(),
         activo: parseBool(String(r.activo ?? "")),
         notas: String(r.notas ?? ""),
+        legacy_campaign: parseBool(String(r.legacy_campaign ?? "")),
       }));
-    // Si la hoja existe pero está vacía, usar respaldo para no dejar el
-    // dashboard sin clasificación.
-    return rules.length > 0 ? rules : getFallbackRules();
+    // Si la hoja existe pero no tiene NINGUNA regla vigente (no-legacy),
+    // usar respaldo para no dejar el dashboard sin clasificación.
+    const vigentes = rules.filter((r) => !r.legacy_campaign);
+    return vigentes.length > 0 ? rules : [...rules, ...getFallbackRules()];
   } catch (err) {
     console.error(
       "[mapping] No se pudo leer el Sheet de mapeo; usando fallback.json:",
@@ -79,7 +93,7 @@ async function fetchMappingFromSheet(): Promise<MappingRule[]> {
 
 const loadMappingCached = unstable_cache(
   async () => fetchMappingFromSheet(),
-  ["5gatos-mapping-rules"],
+  ["5gatos-mapping-rules-adset"],
   { revalidate: MAPPING_CACHE_SECONDS, tags: ["5gatos-mapping"] },
 );
 
@@ -95,24 +109,24 @@ export async function loadMapping(): Promise<MappingRule[]> {
 }
 
 /**
- * Motor puro de matching (testeable sin red): prueba id exacto primero y
- * luego cada regex activo en orden.
+ * Motor puro de matching (testeable sin red): prueba adset_id exacto primero
+ * y luego cada regex activo en orden. Ignora reglas legacy_campaign.
  */
-export function matchCampaignAgainstRules(
+export function matchAdsetAgainstRules(
   rules: MappingRule[],
-  campaignName: string,
-  campaignId: string,
+  adsetName: string,
+  adsetId: string,
 ): MappingMatch | null {
-  // 1) id exacto (gana siempre, incluso si activo=FALSE se ignora la inactiva)
+  // 1) id exacto (gana siempre sobre los regex)
   for (const r of rules) {
-    if (!r.activo) continue;
-    if (r.campaign_id_exacto && r.campaign_id_exacto === campaignId) {
+    if (!r.activo || r.legacy_campaign) continue;
+    if (r.adset_id_exacto && r.adset_id_exacto === adsetId) {
       return { tipo: r.tipo, nombre_normalizado: r.nombre_normalizado };
     }
   }
-  // 2) regex en orden
+  // 2) regex en orden (sobre adset_name)
   for (const r of rules) {
-    if (!r.activo || !r.pattern_regex) continue;
+    if (!r.activo || r.legacy_campaign || !r.pattern_regex) continue;
     let re: RegExp;
     try {
       re = new RegExp(r.pattern_regex, "i");
@@ -120,7 +134,7 @@ export function matchCampaignAgainstRules(
       console.error(`[mapping] Regex inválido en Sheet, se omite: ${r.pattern_regex}`);
       continue;
     }
-    if (re.test(campaignName)) {
+    if (re.test(adsetName)) {
       return { tipo: r.tipo, nombre_normalizado: r.nombre_normalizado };
     }
   }
@@ -128,23 +142,23 @@ export function matchCampaignAgainstRules(
 }
 
 /**
- * Match de una campaña contra el mapeo vigente.
+ * Match de un adset contra el mapeo vigente.
  * `rulesOverride` permite inyectar reglas (tests / batch ya cargado).
  */
-export async function matchCampaign(
-  campaignName: string,
-  campaignId: string,
+export async function matchAdset(
+  adsetName: string,
+  adsetId: string,
   rulesOverride?: MappingRule[],
 ): Promise<MappingMatch | null> {
   const rules = rulesOverride ?? (await loadMapping());
-  return matchCampaignAgainstRules(rules, campaignName, campaignId);
+  return matchAdsetAgainstRules(rules, adsetName, adsetId);
 }
 
 // ---------------------------------------------------------------------------
-// Sin_Clasificar — registro con throttle (máx. 1 vez al día por campaña)
+// Sin_Clasificar — registro con throttle (máx. 1 vez al día por adset)
 // ---------------------------------------------------------------------------
 
-/** Throttle en memoria por instancia: campaign_id → YYYY-MM-DD registrado. */
+/** Throttle en memoria por instancia: adset_id → YYYY-MM-DD registrado. */
 const unclassifiedSeen = new Map<string, string>();
 
 function todayIsoBogota(): string {
@@ -154,25 +168,25 @@ function todayIsoBogota(): string {
 }
 
 /**
- * Registra una campaña sin clasificar en la hoja `Sin_Clasificar` del Sheet
- * de mapeo, para que Ruzmery la corrija. Throttle: la misma campaña no se
+ * Registra un adset sin clasificar en la hoja `Sin_Clasificar` del Sheet
+ * de mapeo, para que Ruzmery lo corrija. Throttle: el mismo adset no se
  * escribe más de 1 vez por día (memoria de instancia + verificación en hoja).
  * Nunca lanza: el dashboard no debe caerse por esto.
  */
 export async function recordUnclassified(
-  campaign: UnclassifiedCampaign,
+  adset: UnclassifiedAdset,
 ): Promise<boolean> {
   const sheetId = getMappingSheetId();
-  if (!sheetId || !campaign.campaign_id) return false;
+  if (!sheetId || !adset.adset_id) return false;
 
   const today = todayIsoBogota();
-  if (unclassifiedSeen.get(campaign.campaign_id) === today) return false;
+  if (unclassifiedSeen.get(adset.adset_id) === today) return false;
 
   try {
     const sheets = getSheetsClient();
 
     // Verificación contra la hoja (cubre instancias serverless frías):
-    // ¿ya hay una fila de hoy para esta campaña?
+    // ¿ya hay una fila de hoy para este adset? (A=fecha_iso, B=adset_id)
     const existing = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
       range: `${MAPPING_TABS.sinClasificar}!A2:B`,
@@ -180,10 +194,10 @@ export async function recordUnclassified(
     const already = (existing.data.values ?? []).some(
       (row) =>
         String(row[0] ?? "").slice(0, 10) === today &&
-        String(row[1] ?? "") === campaign.campaign_id,
+        String(row[1] ?? "") === adset.adset_id,
     );
     if (already) {
-      unclassifiedSeen.set(campaign.campaign_id, today);
+      unclassifiedSeen.set(adset.adset_id, today);
       return false;
     }
 
@@ -196,20 +210,22 @@ export async function recordUnclassified(
         values: [
           [
             new Date().toISOString(),
-            campaign.campaign_id,
-            campaign.campaign_name,
-            campaign.account_id ?? "",
-            campaign.status ?? "",
-            "Auto-registrada desde el dashboard. Agregar patrón o id en la hoja Mapeo.",
+            adset.adset_id,
+            adset.adset_name,
+            adset.campaign_id ?? "",
+            adset.campaign_name ?? "",
+            adset.account_id ?? "",
+            adset.status ?? "",
+            "Auto-registrado desde el dashboard. Agregar patrón o adset_id en la hoja Mapeo.",
           ],
         ],
       },
     });
-    unclassifiedSeen.set(campaign.campaign_id, today);
+    unclassifiedSeen.set(adset.adset_id, today);
     return true;
   } catch (err) {
     console.error(
-      "[mapping] No se pudo registrar campaña sin clasificar:",
+      "[mapping] No se pudo registrar adset sin clasificar:",
       err instanceof Error ? err.message : err,
     );
     return false;
@@ -220,4 +236,12 @@ export async function recordUnclassified(
 export function getMappingSheetUrl(): string | null {
   const id = getMappingSheetId();
   return id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : null;
+}
+
+/** URL del Sheet abierto directamente en la hoja Sin_Clasificar. */
+export function getSinClasificarSheetUrl(): string | null {
+  const id = getMappingSheetId();
+  return id
+    ? `https://docs.google.com/spreadsheets/d/${id}/edit#gid=${SIN_CLASIFICAR_GID}`
+    : null;
 }

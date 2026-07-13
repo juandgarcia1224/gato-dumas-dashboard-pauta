@@ -1,69 +1,122 @@
 {
-  "_comment": "Mapeo de respaldo curso↔campaña para 5 Gatos Bucaramanga. Se usa SOLO si GOOGLE_SHEET_MAPEO_5GATOS_ID no está configurado o el Sheet no responde. La fuente de verdad es el Google Sheet 'Mapeo_Cursos_5Gatos_Bucaramanga' (lo edita Ruzmery). Patrones sembrados desde los nombres reales de campañas de act_248616958293893 (julio 2026).",
+  "_comment": "Mapeo de respaldo curso↔ADSET para 5 Gatos Bucaramanga. Se usa SOLO si GOOGLE_SHEET_MAPEO_5GATOS_ID no está configurado o el Sheet no responde. La fuente de verdad es el Google Sheet 'Mapeo_Cursos_5Gatos_Bucaramanga' (lo edita Ruzmery). Modelo: 1 adset = 1 curso/programa; los patrones regexean sobre el NOMBRE DEL ADSET. Sembrado desde los nombres reales de adsets de act_248616958293893 (julio 2026).",
   "rules": [
     {
-      "pattern_regex": "cursos?\\s*cortos?",
-      "campaign_id_exacto": "",
+      "pattern_regex": "new\\s*york\\s*cookies",
+      "adset_id_exacto": "",
       "tipo": "Curso",
-      "nombre_normalizado": "Cursos Cortos",
+      "nombre_normalizado": "New York Cookies",
       "activo": true,
-      "notas": "Ej: 'Ventas | Cursos cortos | BUC 2026'"
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC_CC_New York Cookies_Advantage'"
     },
     {
-      "pattern_regex": "clase\\s*[uú]nica|masterclass",
-      "campaign_id_exacto": "",
+      "pattern_regex": "cocina\\s*asi[aá]tica",
+      "adset_id_exacto": "",
       "tipo": "Curso",
-      "nombre_normalizado": "Clases Únicas / Masterclass",
+      "nombre_normalizado": "Cocina Asiática",
       "activo": true,
-      "notas": "Ej: 'CGD_Clase-única-Papá-Parrillero', 'Masterclass_MoniRios_BGA'"
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC_CC_Cocina Asiática_Advantage'"
     },
     {
-      "pattern_regex": "diplomado.*pasteler[ií]a|pasteler[ií]a.*diplomado|diplomadopasteleria",
-      "campaign_id_exacto": "",
-      "tipo": "Programa",
-      "nombre_normalizado": "Diplomado Pastelería",
+      "pattern_regex": "iniciaci[oó]n\\s*en\\s*pasteler[ií]a",
+      "adset_id_exacto": "",
+      "tipo": "Curso",
+      "nombre_normalizado": "Iniciación en Pastelería",
       "activo": true,
-      "notas": "Ej: 'Ventas | Diplomados| Pastelería', 'GDC_Meta_Diplomado-Pasteleria'"
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC_CC_Iniciación en Pastelería_Advantage'"
     },
     {
-      "pattern_regex": "diplomado.*gerencia|gerencia\\s*y\\s*montaje|gerenciaymontaje",
-      "campaign_id_exacto": "",
-      "tipo": "Programa",
-      "nombre_normalizado": "Diplomado Gerencia y Montaje",
+      "pattern_regex": "mesa[_\\s]*(de[_\\s]*)?postres",
+      "adset_id_exacto": "",
+      "tipo": "Curso",
+      "nombre_normalizado": "Mesa de Postres",
       "activo": true,
-      "notas": "Ej: 'Ventas | Diplomado Gerencia| Online', 'CDG-GerenciayMontaje-BGA'"
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC_CC_MESA_POSTRES_JUN26'"
     },
     {
-      "pattern_regex": "diplomado.*t[eé]cnicas|t[eé]cnicas\\s*b[aá]sicas|tbcpp",
-      "campaign_id_exacto": "",
-      "tipo": "Programa",
-      "nombre_normalizado": "Diplomado Técnicas Básicas",
+      "pattern_regex": "master\\s*brunch",
+      "adset_id_exacto": "",
+      "tipo": "Curso",
+      "nombre_normalizado": "Master Brunch",
       "activo": true,
-      "notas": "Ej: 'Diplomado_ventas_técnicas básicas', 'Ventas | Diplomados | TBCPP'"
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC_CC_Master Brunch: Del Desayuno al Almuerzo_Advantage'"
+    },
+    {
+      "pattern_regex": "papa[_\\s]*parrillero",
+      "adset_id_exacto": "",
+      "tipo": "Curso",
+      "nombre_normalizado": "Papá Parrillero",
+      "activo": true,
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC_CC_PAPA_PARRILLERO_JUN26'"
+    },
+    {
+      "pattern_regex": "cocina[_\\s]*mexicana",
+      "adset_id_exacto": "",
+      "tipo": "Curso",
+      "nombre_normalizado": "Cocina Mexicana",
+      "activo": true,
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC_CC_COCINA_MEXICANA_JUN26'"
+    },
+    {
+      "pattern_regex": "triple\\s*titulaci[oó]n",
+      "adset_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Programa Triple Titulación",
+      "activo": true,
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC | Triple Titulación | Interés'"
+    },
+    {
+      "pattern_regex": "pasteler[ií]a\\s*y\\s*panader[ií]a",
+      "adset_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Programa Pastelería y Panadería",
+      "activo": true,
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC | Pastelería y Panadería | Interés'"
+    },
+    {
+      "pattern_regex": "\\bsupervisor\\b",
+      "adset_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Programa Supervisor",
+      "activo": true,
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC | Supervisor | Interés'"
+    },
+    {
+      "pattern_regex": "buc\\s*\\|\\s*cocina\\s*\\|",
+      "adset_id_exacto": "",
+      "tipo": "Programa",
+      "nombre_normalizado": "Programa Cocina",
+      "activo": true,
+      "legacy_campaign": false,
+      "notas": "Ej: 'BUC | Cocina | Interés'. Mantener DESPUÉS de los cursos de cocina específicos (Cocina Asiática, Cocina Mexicana…)."
     },
     {
       "pattern_regex": "diplomado",
-      "campaign_id_exacto": "",
+      "adset_id_exacto": "",
       "tipo": "Programa",
       "nombre_normalizado": "Diplomados (general)",
       "activo": true,
-      "notas": "Comodín: cualquier diplomado no cubierto arriba. Mantener al final de los diplomados."
+      "legacy_campaign": false,
+      "notas": "Comodín: cualquier adset con 'diplomado' en el nombre no cubierto arriba."
     },
     {
-      "pattern_regex": "p(?:ro|or)gramas?\\b|\\bgdc\\b",
-      "campaign_id_exacto": "",
-      "tipo": "Programa",
-      "nombre_normalizado": "Programas GDC",
+      "pattern_regex": "cursos?\\s*cortos?",
+      "adset_id_exacto": "",
+      "tipo": "Curso",
+      "nombre_normalizado": "Cursos Cortos (general)",
       "activo": true,
-      "notas": "Ej: 'Programas | BUC | Mayo 2026', 'Programas | Bucaramanga | GDC'. Cubre también el typo real 'Porgramas' (campaña julio 2026)."
-    },
-    {
-      "pattern_regex": "open\\s*house",
-      "campaign_id_exacto": "",
-      "tipo": "Programa",
-      "nombre_normalizado": "Open House",
-      "activo": true,
-      "notas": "Evento de captación para programas."
+      "legacy_campaign": false,
+      "notas": "Comodín para adsets tipo 'Cursos cortos | Panadería Dulce | …'. Mantener al final."
     }
   ]
 }

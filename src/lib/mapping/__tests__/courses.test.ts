@@ -1,107 +1,128 @@
 /**
- * Tests del motor de mapeo curso↔campaña (5 Gatos Bucaramanga).
- * Corre sin red: inyecta reglas con el tercer parámetro de matchCampaign.
+ * Tests del motor de mapeo curso↔ADSET (5 Gatos Bucaramanga).
+ * Corre sin red: inyecta reglas con el tercer parámetro de matchAdset.
  *
  *   npm run test:mapping
  */
 
 import { strict as assert } from "node:assert";
 import test from "node:test";
-import { getFallbackRules, matchCampaign, matchCampaignAgainstRules } from "../courses";
+import { getFallbackRules, matchAdset, matchAdsetAgainstRules } from "../courses";
 import type { MappingRule } from "../types";
 
 const RULES: MappingRule[] = [
   {
     pattern_regex: "",
-    campaign_id_exacto: "120247544621630440",
+    adset_id_exacto: "120251920110490440",
     tipo: "Curso",
-    nombre_normalizado: "Cursos Cortos BUC (id fijo)",
+    nombre_normalizado: "New York Cookies (id fijo)",
     activo: true,
     notas: "",
+    legacy_campaign: false,
   },
   {
-    pattern_regex: "cursos?\\s*cortos?",
-    campaign_id_exacto: "",
+    pattern_regex: "new\\s*york\\s*cookies",
+    adset_id_exacto: "",
     tipo: "Curso",
-    nombre_normalizado: "Cursos Cortos",
+    nombre_normalizado: "New York Cookies",
     activo: true,
     notas: "",
+    legacy_campaign: false,
   },
   {
-    pattern_regex: "diplomado",
-    campaign_id_exacto: "",
+    pattern_regex: "triple\\s*titulaci[oó]n",
+    adset_id_exacto: "",
     tipo: "Programa",
-    nombre_normalizado: "Diplomados",
+    nombre_normalizado: "Programa Triple Titulación",
     activo: true,
     notas: "",
+    legacy_campaign: false,
   },
   {
     pattern_regex: "open\\s*house",
-    campaign_id_exacto: "",
+    adset_id_exacto: "",
     tipo: "Programa",
     nombre_normalizado: "Open House (inactiva)",
     activo: false,
     notas: "Regla apagada: no debe matchear",
+    legacy_campaign: false,
+  },
+  {
+    pattern_regex: "cursos?\\s*cortos?",
+    adset_id_exacto: "",
+    tipo: "Curso",
+    nombre_normalizado: "Cursos Cortos (LEGACY campaña)",
+    activo: true,
+    notas: "Regla del modelo viejo: regexeaba nombres de campaña",
+    legacy_campaign: true,
   },
 ];
 
-test("match por campaign_id_exacto gana sobre el regex", async () => {
-  const m = await matchCampaign(
-    "Ventas | Cursos cortos | BUC 2026",
-    "120247544621630440",
+test("match por adset_id_exacto gana sobre el regex", async () => {
+  const m = await matchAdset(
+    "BUC_CC_New York Cookies_Advantage",
+    "120251920110490440",
     RULES,
   );
   assert.ok(m);
-  assert.equal(m.nombre_normalizado, "Cursos Cortos BUC (id fijo)");
+  assert.equal(m.nombre_normalizado, "New York Cookies (id fijo)");
   assert.equal(m.tipo, "Curso");
 });
 
-test("match por pattern_regex (case-insensitive, orden de la hoja)", async () => {
-  const m = await matchCampaign(
-    "GDC_Meta_ventas_CUSOS... Diplomado-Pasteleria",
-    "999",
-    RULES,
-  );
+test("match por pattern_regex sobre adset_name (case-insensitive)", async () => {
+  const m = await matchAdset("buc_cc_NEW YORK cookies_advantage", "999", RULES);
   assert.ok(m);
-  assert.equal(m.tipo, "Programa");
-  assert.equal(m.nombre_normalizado, "Diplomados");
+  assert.equal(m.tipo, "Curso");
+  assert.equal(m.nombre_normalizado, "New York Cookies");
 
-  const m2 = await matchCampaign("ventas | cursos CORTOS | enero", "888", RULES);
+  const m2 = await matchAdset("BUC | Triple Titulación | Interés", "888", RULES);
   assert.ok(m2);
-  assert.equal(m2.nombre_normalizado, "Cursos Cortos");
+  assert.equal(m2.tipo, "Programa");
+  assert.equal(m2.nombre_normalizado, "Programa Triple Titulación");
 });
 
-test("sin match → null (y reglas inactivas se ignoran)", async () => {
-  const m = await matchCampaign("Open House | Bucaramanga", "777", RULES);
+test("sin match → null (reglas inactivas y legacy_campaign se ignoran)", async () => {
+  // Regla inactiva no matchea:
+  const m = await matchAdset("Open House | Bucaramanga", "777", RULES);
   assert.equal(m, null);
-  const m2 = await matchCampaign("Tráfico al perfil | posicionamiento", "666", RULES);
+  // Regla legacy_campaign=TRUE NO se aplica aunque el regex matchee:
+  const m2 = await matchAdset("Cursos cortos | Panadería Dulce | BUC", "666", RULES);
   assert.equal(m2, null);
+  // Adset sin patrón conocido:
+  const m3 = await matchAdset("Tráfico al perfil | posicionamiento", "555", RULES);
+  assert.equal(m3, null);
 });
 
 test("regex inválido en la hoja no rompe el matching", () => {
   const rules: MappingRule[] = [
     {
       pattern_regex: "([invalido",
-      campaign_id_exacto: "",
+      adset_id_exacto: "",
       tipo: "Curso",
       nombre_normalizado: "Roto",
       activo: true,
       notas: "",
+      legacy_campaign: false,
     },
     ...RULES,
   ];
-  const m = matchCampaignAgainstRules(rules, "Ventas | Cursos cortos | BUC", "1");
+  const m = matchAdsetAgainstRules(rules, "BUC_CC_New York Cookies_Adv", "1");
   assert.ok(m);
-  assert.equal(m.nombre_normalizado, "Cursos Cortos");
+  assert.equal(m.nombre_normalizado, "New York Cookies");
 });
 
-test("fallback.json trae reglas válidas y clasifica nombres reales", () => {
+test("fallback.json trae reglas válidas y clasifica adsets reales", () => {
   const rules = getFallbackRules();
-  assert.ok(rules.length >= 5);
-  const cursos = matchCampaignAgainstRules(rules, "Ventas | Cursos cortos | BUC 2026", "1");
-  assert.equal(cursos?.tipo, "Curso");
-  const prog = matchCampaignAgainstRules(rules, "Programas | BUC | Mayo 2026", "2");
+  assert.ok(rules.length >= 8);
+  const curso = matchAdsetAgainstRules(rules, "BUC_CC_Cocina Asiática_Advantage", "1");
+  assert.equal(curso?.tipo, "Curso");
+  assert.equal(curso?.nombre_normalizado, "Cocina Asiática");
+  const prog = matchAdsetAgainstRules(rules, "BUC | Pastelería y Panadería | Interés", "2");
   assert.equal(prog?.tipo, "Programa");
-  const dipl = matchCampaignAgainstRules(rules, "GDC-BGA-Whatsapp-DiplomadoPasteleria", "3");
-  assert.equal(dipl?.nombre_normalizado, "Diplomado Pastelería");
+  assert.equal(prog?.nombre_normalizado, "Programa Pastelería y Panadería");
+  const progCocina = matchAdsetAgainstRules(rules, "BUC | Cocina | Interés", "3");
+  assert.equal(progCocina?.nombre_normalizado, "Programa Cocina");
+  // Un curso específico de cocina NO debe caer en "Programa Cocina":
+  const mex = matchAdsetAgainstRules(rules, "BUC_CC_COCINA_MEXICANA_JUN26", "4");
+  assert.equal(mex?.nombre_normalizado, "Cocina Mexicana");
 });

@@ -1,6 +1,6 @@
 /**
- * Crea el Google Sheet `Mapeo_Cursos_5Gatos_Bucaramanga` (mapeo curso↔campaña
- * del dashboard cliente 5 Gatos), siembra las reglas iniciales desde
+ * Crea/actualiza el Google Sheet `Mapeo_Cursos_5Gatos_Bucaramanga` (mapeo
+ * curso↔ADSET del dashboard cliente 5 Gatos), siembra reglas iniciales desde
  * `src/lib/mapping/fallback.json` y lo comparte con Juan como Editor.
  *
  * Uso:
@@ -8,12 +8,18 @@
  *
  * Requiere en .env.local:
  *   GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY
+ *   (y GOOGLE_SHEET_MAPEO_5GATOS_ID si el Sheet ya existe)
  *
- * Al terminar imprime el ID del Sheet → copiarlo a .env.local como
- * GOOGLE_SHEET_MAPEO_5GATOS_ID (y a Vercel).
- *
- * Idempotencia: si GOOGLE_SHEET_MAPEO_5GATOS_ID ya está definido, NO crea un
- * sheet nuevo; solo garantiza hojas/headers y el permiso de Juan.
+ * IDEMPOTENTE + MIGRACIÓN campaña→adset (julio 2026):
+ *   - Renombra el header `campaign_id_exacto` → `adset_id_exacto` (los
+ *     valores de la columna se conservan).
+ *   - Agrega la columna `legacy_campaign`; las filas que existían con el
+ *     modelo viejo (regex sobre nombre de CAMPAÑA) se marcan TRUE para que
+ *     el matcher las ignore hasta que Ruzmery las revise. NO se borra nada.
+ *   - Siembra las reglas nuevas a nivel adset (fallback.json) que falten.
+ *   - Reescribe el header de Sin_Clasificar al esquema adset (solo si la
+ *     hoja está vacía; si tiene datos, los preserva y solo agrega columnas).
+ *   - Crea/actualiza la hoja README con la documentación del esquema.
  */
 import "./load-env";
 
@@ -24,6 +30,36 @@ import { MAPPING_HEADERS, MAPPING_TABS } from "../src/lib/mapping/types";
 
 const SHEET_TITLE = "Mapeo_Cursos_5Gatos_Bucaramanga";
 const SHARE_WITH = "juandgarcia1224@gmail.com";
+
+const README_CONTENT: string[][] = [
+  ["Mapeo curso↔ADSET · 5 Gatos Bucaramanga"],
+  [""],
+  ["MODELO (desde julio 2026): 1 adset = 1 curso o programa."],
+  ["El nombre del adset lleva el nombre del curso. Las campañas de Meta son"],
+  ["solo contenedores (ej: 'Conversiones Julio' con 5 adsets, uno por curso)."],
+  ["El dashboard /5gatos clasifica ADSETS, no campañas."],
+  [""],
+  ["Hoja 'Mapeo' — columnas:"],
+  ["  pattern_regex      → regex (case-insensitive) contra el NOMBRE DEL ADSET."],
+  ["  adset_id_exacto    → match exacto por id de adset de Meta. Gana sobre el regex."],
+  ["  tipo               → Curso | Programa."],
+  ["  nombre_normalizado → nombre que se muestra en el dashboard y el Excel."],
+  ["  activo             → TRUE para aplicar la regla; FALSE la apaga sin borrarla."],
+  ["  notas              → libre (ejemplos de nombres que cubre)."],
+  ["  legacy_campaign    → TRUE = regla del modelo viejo (regexeaba nombres de"],
+  ["                       CAMPAÑA). El matcher la IGNORA. Revisar y convertir:"],
+  ["                       si el patrón también aplica al nombre del adset,"],
+  ["                       cambiar legacy_campaign a FALSE; si no, dejar TRUE."],
+  [""],
+  ["Orden importa: la primera regla que matchea gana. Reglas específicas"],
+  ["(ej. 'Cocina Asiática') van ANTES que comodines (ej. 'Programa Cocina')."],
+  [""],
+  ["Hoja 'Sin_Clasificar': el dashboard registra aquí (máx. 1 vez/día por"],
+  ["adset) los adsets con gasto que ninguna regla clasifica. Para corregir:"],
+  ["agregar una fila en 'Mapeo' con el patrón o el adset_id y activo=TRUE."],
+  [""],
+  ["Mantenimiento: Ruzmery. Dudas: Juan (juandgarcia1224@gmail.com)."],
+];
 
 async function main() {
   const g = getGoogleEnv();
@@ -83,62 +119,132 @@ async function main() {
       });
       console.log(`  + hojas creadas: ${missing.join(", ")}`);
     }
+    const sinClasificarGid = (meta.data.sheets ?? []).find(
+      (s) => s.properties?.title === MAPPING_TABS.sinClasificar,
+    )?.properties?.sheetId;
+    if (sinClasificarGid !== undefined && sinClasificarGid !== null) {
+      console.log(`  gid de Sin_Clasificar: ${sinClasificarGid} (SIN_CLASIFICAR_GID en src/lib/mapping/types.ts)`);
+    }
   }
 
-  // Headers (idempotente: fija la fila 1 de cada hoja).
+  // ── MIGRACIÓN campaña→adset en la hoja Mapeo ──────────────────────────
+  const historyEntries: string[][] = [];
+  const mapeoRes = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${MAPPING_TABS.mapeo}!A1:G`,
+  });
+  const mapeoValues = (mapeoRes.data.values ?? []) as string[][];
+  const oldHeader = mapeoValues[0] ?? [];
+  const dataRows = mapeoValues.slice(1);
+  const hadOldSchema = oldHeader[1] === "campaign_id_exacto";
+  const hadLegacyCol = oldHeader[6] === "legacy_campaign";
+
+  if (hadOldSchema && !hadLegacyCol && dataRows.length > 0) {
+    // Primera migración: marcar TODAS las filas existentes como legacy
+    // (eran reglas sobre nombres de CAMPAÑA). No se borra nada.
+    const legacyMarks = dataRows.map((row, i) => {
+      const notas = String(row[5] ?? "");
+      const suffix = " [LEGACY: regla del modelo campaña, revisar para adsets]";
+      return {
+        range: `${MAPPING_TABS.mapeo}!F${i + 2}:G${i + 2}`,
+        values: [[notas.includes("[LEGACY") ? notas : notas + suffix, "TRUE"]],
+      };
+    });
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: { valueInputOption: "RAW", data: legacyMarks },
+    });
+    console.log(`✅ Migración: ${dataRows.length} reglas viejas marcadas legacy_campaign=TRUE`);
+    historyEntries.push([
+      new Date().toISOString(),
+      "migracion_adset",
+      "(header campaign_id_exacto → adset_id_exacto)",
+      `${dataRows.length} reglas de campaña marcadas legacy_campaign=TRUE`,
+      "setup-mapping-sheet.ts",
+    ]);
+  }
+
+  // Headers (idempotente: fija la fila 1 de cada hoja de datos).
+  // Esto también renombra campaign_id_exacto → adset_id_exacto en Mapeo.
+  const dataTabs = [MAPPING_TABS.mapeo, MAPPING_TABS.historial, MAPPING_TABS.sinClasificar];
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId,
     requestBody: {
       valueInputOption: "RAW",
-      data: tabs.map((tab) => ({
+      data: dataTabs.map((tab) => ({
         range: `${tab}!A1`,
         values: [MAPPING_HEADERS[tab]],
       })),
     },
   });
-  console.log("✅ Headers escritos en Mapeo / Historial / Sin_Clasificar");
+  console.log("✅ Headers (esquema adset) escritos en Mapeo / Historial / Sin_Clasificar");
 
-  // Sembrar reglas iniciales SOLO si la hoja Mapeo está vacía (no pisar a Ruzmery).
-  const current = await sheets.spreadsheets.values.get({
+  // README (se reescribe completo: es documentación, no datos).
+  await sheets.spreadsheets.values.clear({
     spreadsheetId,
-    range: `${MAPPING_TABS.mapeo}!A2:F`,
+    range: `${MAPPING_TABS.readme}!A1:Z`,
   });
-  if (!current.data.values || current.data.values.length === 0) {
-    const rules = getFallbackRules();
-    await sheets.spreadsheets.values.update({
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${MAPPING_TABS.readme}!A1`,
+    valueInputOption: "RAW",
+    requestBody: { values: README_CONTENT },
+  });
+  console.log("✅ Hoja README actualizada (esquema adset documentado)");
+
+  // ── Sembrar reglas adset que falten (no pisa filas de Ruzmery) ─────────
+  const currentRes = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${MAPPING_TABS.mapeo}!A2:G`,
+  });
+  const currentRows = (currentRes.data.values ?? []) as string[][];
+  // Solo cuentan como "presentes" las reglas vigentes (no legacy): una regla
+  // legacy con el mismo patrón NO reemplaza a su versión adset.
+  const existingPatterns = new Set(
+    currentRows
+      .filter((r) => String(r[6] ?? "").trim().toUpperCase() !== "TRUE")
+      .map((r) => `${String(r[0] ?? "").trim()}§${String(r[3] ?? "").trim()}`),
+  );
+  const seeds = getFallbackRules().filter(
+    (r) => !existingPatterns.has(`${r.pattern_regex}§${r.nombre_normalizado}`),
+  );
+  if (seeds.length > 0) {
+    await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `${MAPPING_TABS.mapeo}!A2`,
+      range: `${MAPPING_TABS.mapeo}!A1`,
       valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
       requestBody: {
-        values: rules.map((r) => [
+        values: seeds.map((r) => [
           r.pattern_regex,
-          r.campaign_id_exacto,
+          r.adset_id_exacto,
           r.tipo,
           r.nombre_normalizado,
           r.activo ? "TRUE" : "FALSE",
           r.notas,
+          r.legacy_campaign ? "TRUE" : "FALSE",
         ]),
       },
     });
+    console.log(`✅ ${seeds.length} reglas adset sembradas en Mapeo`);
+    historyEntries.push([
+      new Date().toISOString(),
+      "seed_adsets",
+      "(fallback.json nivel adset)",
+      `${seeds.length} reglas adset sembradas`,
+      "setup-mapping-sheet.ts",
+    ]);
+  } else {
+    console.log("↷ Reglas adset ya presentes; no se siembra nada.");
+  }
+
+  if (historyEntries.length > 0) {
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: `${MAPPING_TABS.historial}!A1`,
       valueInputOption: "RAW",
-      requestBody: {
-        values: [
-          [
-            new Date().toISOString(),
-            "seed_inicial",
-            "(fallback.json)",
-            `${rules.length} reglas sembradas`,
-            "setup-mapping-sheet.ts",
-          ],
-        ],
-      },
+      requestBody: { values: historyEntries },
     });
-    console.log(`✅ ${rules.length} reglas iniciales sembradas en Mapeo`);
-  } else {
-    console.log("↷ Hoja Mapeo ya tiene reglas; no se siembra nada.");
   }
 
   // Compartir con Juan como Editor.
