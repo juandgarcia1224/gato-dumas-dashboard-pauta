@@ -4,15 +4,25 @@ import { useMemo, useState } from "react";
 import type { GroupSummaryRow } from "@/lib/fivegatos/data";
 import { fmtCop, fmtInt } from "@/lib/fivegatos/constants";
 
-type SortKey = "nombre" | "inversion" | "impressions" | "clicks" | "leads" | "cpl";
+type SortKey =
+  | "nombre"
+  | "inversion"
+  | "inversionLifetime"
+  | "impressions"
+  | "clicks"
+  | "leads"
+  | "cpl"
+  | "adsetsActivos";
 
 const COLS: { key: SortKey; label: string; numeric: boolean }[] = [
   { key: "nombre", label: "", numeric: false },
-  { key: "inversion", label: "Inversión", numeric: true },
+  { key: "inversion", label: "Inversión (mes)", numeric: true },
+  { key: "inversionLifetime", label: "Desde inicio", numeric: true },
   { key: "impressions", label: "Impresiones", numeric: true },
   { key: "clicks", label: "Clics", numeric: true },
   { key: "leads", label: "Leads", numeric: true },
   { key: "cpl", label: "CPL", numeric: true },
+  { key: "adsetsActivos", label: "Adsets activos", numeric: true },
 ];
 
 export default function SummaryTable({
@@ -42,14 +52,18 @@ export default function SummaryTable({
 
   const totals = useMemo(() => {
     const inversion = rows.reduce((s, r) => s + r.inversion, 0);
+    const inversionLifetime = rows.reduce((s, r) => s + r.inversionLifetime, 0);
     const impressions = rows.reduce((s, r) => s + r.impressions, 0);
     const clicks = rows.reduce((s, r) => s + r.clicks, 0);
     const leads = rows.reduce((s, r) => s + r.leads, 0);
+    const adsetsActivos = rows.reduce((s, r) => s + r.adsetsActivos, 0);
     return {
       inversion,
+      inversionLifetime,
       impressions,
       clicks,
       leads,
+      adsetsActivos,
       cpl: leads > 0 ? inversion / leads : null,
     };
   }, [rows]);
@@ -72,7 +86,7 @@ export default function SummaryTable({
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <table className="w-full min-w-[640px] text-left">
+      <table className="w-full min-w-[860px] text-left">
         <thead>
           <tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
             {COLS.map((c) => (
@@ -104,14 +118,17 @@ export default function SummaryTable({
             >
               <td className="px-5 py-3.5 text-base font-semibold text-neutral-900">
                 {r.nombre}
-                {r.campaigns > 1 && (
+                {r.adsets > 1 && (
                   <span className="ml-2 text-xs font-normal text-neutral-400">
-                    {r.campaigns} campañas
+                    {r.adsets} adsets
                   </span>
                 )}
               </td>
               <td className="px-4 py-3.5 text-right text-base font-semibold tabular-nums text-neutral-900">
                 {fmtCop(r.inversion)}
+              </td>
+              <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
+                {fmtCop(r.inversionLifetime)}
               </td>
               <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
                 {fmtInt(r.impressions)}
@@ -125,6 +142,9 @@ export default function SummaryTable({
               <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
                 {fmtCop(r.cpl)}
               </td>
+              <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
+                {fmtInt(r.adsetsActivos)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -132,10 +152,12 @@ export default function SummaryTable({
           <tr className="border-t-2 border-neutral-300 bg-neutral-50 text-base font-bold text-neutral-900">
             <td className="px-5 py-3.5">Total</td>
             <td className="px-4 py-3.5 text-right tabular-nums">{fmtCop(totals.inversion)}</td>
+            <td className="px-4 py-3.5 text-right tabular-nums">{fmtCop(totals.inversionLifetime)}</td>
             <td className="px-4 py-3.5 text-right tabular-nums">{fmtInt(totals.impressions)}</td>
             <td className="px-4 py-3.5 text-right tabular-nums">{fmtInt(totals.clicks)}</td>
             <td className="px-4 py-3.5 text-right tabular-nums">{fmtInt(totals.leads)}</td>
             <td className="px-4 py-3.5 text-right tabular-nums">{fmtCop(totals.cpl)}</td>
+            <td className="px-4 py-3.5 text-right tabular-nums">{fmtInt(totals.adsetsActivos)}</td>
           </tr>
         </tfoot>
       </table>

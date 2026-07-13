@@ -1,11 +1,12 @@
 /**
  * /5gatos — Dashboard cliente para 5 Gatos (Gato Dumas Bucaramanga).
- * Vista mensual: inversión por curso y programa + campañas activas.
+ * NIVEL ADSET (1 adset = 1 curso/programa): inversión mensual por curso y
+ * programa + adsets activos con consumo lifetime desde su inicio real.
  * Server Component: los datos se traen en el servidor (Meta READ-ONLY).
  */
 
 import Image from "next/image";
-import ActiveCampaignCard from "@/components/fivegatos/ActiveCampaignCard";
+import ActiveAdsetCard from "@/components/fivegatos/ActiveAdsetCard";
 import KpiCards from "@/components/fivegatos/KpiCards";
 import MonthSelect from "@/components/fivegatos/MonthSelect";
 import { labelMes } from "@/components/fivegatos/labelMes";
@@ -17,7 +18,7 @@ import {
   isValidMonth,
   monthOptions,
 } from "@/lib/fivegatos/data";
-import { getMappingSheetUrl } from "@/lib/mapping/courses";
+import { getSinClasificarSheetUrl } from "@/lib/mapping/courses";
 
 export const metadata = {
   title: "5 Gatos · Bucaramanga — Pauta digital",
@@ -55,7 +56,7 @@ export default async function FiveGatosPage({
       : currentMonthBogota();
 
   const result = await getFiveGatosMonth(month);
-  const sheetUrl = getMappingSheetUrl();
+  const sheetUrl = getSinClasificarSheetUrl();
 
   return (
     <div className="min-h-screen bg-[#f6f4f0] font-sans text-neutral-900">
@@ -124,7 +125,7 @@ export default async function FiveGatosPage({
 
             {/* ── Resumen por Curso ────────────────────────── */}
             <section aria-label="Resumen por curso">
-              <SectionTitle sub="Inversión y resultados de cursos cortos, clases y masterclass.">
+              <SectionTitle sub="Inversión y resultados de cursos cortos, clases y masterclass (suma de sus adsets).">
                 Resumen por Curso
               </SectionTitle>
               <SummaryTable rows={result.data.cursos} firstColLabel="Curso" />
@@ -141,21 +142,21 @@ export default async function FiveGatosPage({
               />
             </section>
 
-            {/* ── Campañas activas ─────────────────────────── */}
-            <section aria-label="Campañas activas">
+            {/* ── Adsets activos ───────────────────────────── */}
+            <section aria-label="Adsets activos">
               <SectionTitle
-                sub={`Semáforo según CPL vs benchmark de ${fmtCop(BENCHMARK_CPL)}.`}
+                sub={`Un adset por curso o programa · Semáforo según CPL del mes vs benchmark de ${fmtCop(BENCHMARK_CPL)}.`}
               >
-                Campañas activas ahora
+                Adsets activos ahora
               </SectionTitle>
-              {result.data.activas.length === 0 ? (
+              {result.data.activos.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-neutral-300 bg-white/60 px-5 py-8 text-center text-base text-neutral-500">
-                  No hay campañas activas en este momento.
+                  No hay adsets activos en este momento.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {result.data.activas.map((c) => (
-                    <ActiveCampaignCard key={c.campaign_id} c={c} />
+                  {result.data.activos.map((a) => (
+                    <ActiveAdsetCard key={a.adset_id} a={a} />
                   ))}
                 </div>
               )}
@@ -164,21 +165,29 @@ export default async function FiveGatosPage({
             {/* ── Sin clasificar (discreto) ────────────────── */}
             {result.data.sinClasificar.length > 0 && (
               <section
-                aria-label="Campañas sin clasificar"
+                aria-label="Adsets sin clasificar"
                 className="rounded-xl border border-amber-200 bg-amber-50/60 p-5"
               >
                 <h3 className="text-sm font-bold text-amber-900">
-                  Campañas sin clasificar ({result.data.sinClasificar.length})
+                  {result.data.sinClasificar.length}{" "}
+                  {result.data.sinClasificar.length === 1
+                    ? "adset sin curso o programa asignado"
+                    : "adsets sin curso o programa asignado"}
                 </h3>
                 <p className="mt-1 text-sm text-amber-800/80">
-                  Estas campañas aún no están asociadas a un curso o programa y
+                  Estos adsets aún no están asociados a un curso o programa y
                   no aparecen en los resúmenes de arriba.
                 </p>
                 <ul className="mt-3 space-y-1 text-sm text-amber-900">
-                  {result.data.sinClasificar.map((c) => (
-                    <li key={c.campaign_id} className="flex justify-between gap-4">
-                      <span className="truncate">{c.campaign_name}</span>
-                      <span className="shrink-0 tabular-nums">{fmtCop(c.spend)}</span>
+                  {result.data.sinClasificar.map((a) => (
+                    <li key={a.adset_id} className="flex justify-between gap-4">
+                      <span className="truncate">
+                        {a.adset_name}
+                        <span className="ml-2 text-xs text-amber-700/70">
+                          {a.campaign_name}
+                        </span>
+                      </span>
+                      <span className="shrink-0 tabular-nums">{fmtCop(a.spend)}</span>
                     </li>
                   ))}
                 </ul>

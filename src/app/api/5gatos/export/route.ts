@@ -1,9 +1,9 @@
 /**
  * GET /api/5gatos/export?month=YYYY-MM
- * Genera el Excel mensual para 5 Gatos · Bucaramanga:
+ * Genera el Excel mensual para 5 Gatos · Bucaramanga (NIVEL ADSET):
  *   Hoja 1: Resumen por Curso
  *   Hoja 2: Resumen por Programa
- *   Hoja 3: Campañas Activas Detalladas
+ *   Hoja 3: Adsets Detallados (activos hoy, con fechas y consumo lifetime)
  *   Hoja 4: Sin Clasificar (solo si hay)
  * Celdas de dinero con formato COP. Protegida por middleware (login Google).
  */
@@ -14,7 +14,7 @@ import {
   currentMonthBogota,
   getFiveGatosMonth,
   isValidMonth,
-  type CampaignMonthStats,
+  type AdsetStats,
   type GroupSummaryRow,
 } from "@/lib/fivegatos/data";
 
@@ -41,60 +41,92 @@ function formatColumns(
   }
 }
 
+function fechaCorta(iso: string | null): string {
+  if (!iso) return "";
+  return iso.slice(0, 10);
+}
+
 function summarySheet(rows: GroupSummaryRow[], firstCol: string): XLSX.WorkSheet {
-  const header = [firstCol, "Inversión (COP)", "Impresiones", "Clicks", "Leads", "CPL (COP)", "Campañas"];
+  const header = [
+    firstCol,
+    "Inversión mes (COP)",
+    "Desde inicio (COP)",
+    "Impresiones",
+    "Clicks",
+    "Leads",
+    "CPL (COP)",
+    "Adsets",
+    "Adsets activos",
+  ];
   const body = rows.map((r) => [
     r.nombre,
     r.inversion,
+    r.inversionLifetime,
     r.impressions,
     r.clicks,
     r.leads,
     r.cpl ?? "",
-    r.campaigns,
+    r.adsets,
+    r.adsetsActivos,
   ]);
   const totalLeads = rows.reduce((s, r) => s + r.leads, 0);
   const totalInv = rows.reduce((s, r) => s + r.inversion, 0);
   const total = [
     "TOTAL",
     totalInv,
+    rows.reduce((s, r) => s + r.inversionLifetime, 0),
     rows.reduce((s, r) => s + r.impressions, 0),
     rows.reduce((s, r) => s + r.clicks, 0),
     totalLeads,
     totalLeads > 0 ? totalInv / totalLeads : "",
-    rows.reduce((s, r) => s + r.campaigns, 0),
+    rows.reduce((s, r) => s + r.adsets, 0),
+    rows.reduce((s, r) => s + r.adsetsActivos, 0),
   ];
   const ws = XLSX.utils.aoa_to_sheet([header, ...body, total]);
-  ws["!cols"] = [{ wch: 34 }, { wch: 16 }, { wch: 14 }, { wch: 10 }, { wch: 8 }, { wch: 14 }, { wch: 10 }];
-  formatColumns(ws, [1, 5], [2, 3, 4, 6]);
+  ws["!cols"] = [
+    { wch: 34 }, { wch: 17 }, { wch: 17 }, { wch: 14 },
+    { wch: 10 }, { wch: 8 }, { wch: 14 }, { wch: 8 }, { wch: 14 },
+  ];
+  formatColumns(ws, [1, 2, 6], [3, 4, 5, 7, 8]);
   return ws;
 }
 
-function campaignsSheet(rows: CampaignMonthStats[]): XLSX.WorkSheet {
+function adsetsSheet(rows: AdsetStats[]): XLSX.WorkSheet {
   const header = [
-    "Campaña", "Curso/Programa", "Tipo", "Estado",
-    "Gasto (COP)", "Impresiones", "Clicks", "CTR %", "CPC (COP)", "CPM (COP)", "Leads", "CPL (COP)", "Semáforo CPL",
+    "Adset", "Campaña (contenedor)", "Curso/Programa", "Tipo", "Estado",
+    "Inicio", "Fin planeado",
+    "Consumo desde inicio (COP)", "Gasto mes (COP)",
+    "Impresiones", "Clicks", "CTR %", "CPC (COP)", "CPM (COP)",
+    "Leads (mes)", "CPL (COP)", "Semáforo CPL",
   ];
-  const body = rows.map((c) => [
-    c.campaign_name,
-    c.nombre_normalizado ?? "Sin clasificar",
-    c.tipo ?? "",
-    c.effective_status || c.status,
-    c.spend,
-    c.impressions,
-    c.clicks,
-    c.ctr,
-    c.cpc ?? "",
-    c.cpm ?? "",
-    c.leads,
-    c.cpl ?? "",
-    c.semaforo === "sin_datos" ? "sin leads" : c.semaforo,
+  const body = rows.map((a) => [
+    a.adset_name,
+    a.campaign_name,
+    a.nombre_normalizado ?? "Sin clasificar",
+    a.tipo ?? "",
+    a.effective_status || a.status,
+    fechaCorta(a.start_time),
+    a.end_time ? fechaCorta(a.end_time) : "sin fecha fin",
+    a.spend_lifetime,
+    a.spend,
+    a.impressions,
+    a.clicks,
+    a.ctr,
+    a.cpc ?? "",
+    a.cpm ?? "",
+    a.leads,
+    a.cpl ?? "",
+    a.semaforo === "sin_datos" ? "sin leads" : a.semaforo,
   ]);
   const ws = XLSX.utils.aoa_to_sheet([header, ...body]);
   ws["!cols"] = [
-    { wch: 44 }, { wch: 28 }, { wch: 10 }, { wch: 10 },
-    { wch: 14 }, { wch: 12 }, { wch: 9 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 7 }, { wch: 12 }, { wch: 12 },
+    { wch: 44 }, { wch: 34 }, { wch: 28 }, { wch: 10 }, { wch: 10 },
+    { wch: 11 }, { wch: 12 },
+    { wch: 20 }, { wch: 14 },
+    { wch: 12 }, { wch: 9 }, { wch: 8 }, { wch: 12 }, { wch: 12 },
+    { wch: 11 }, { wch: 12 }, { wch: 12 },
   ];
-  formatColumns(ws, [4, 8, 9, 11], [5, 6, 10]);
+  formatColumns(ws, [7, 8, 12, 13, 15], [9, 10, 14]);
   return ws;
 }
 
@@ -119,13 +151,13 @@ export async function GET(req: NextRequest) {
   XLSX.utils.book_append_sheet(wb, summarySheet(d.programas, "Programa"), "Resumen por Programa");
   XLSX.utils.book_append_sheet(
     wb,
-    campaignsSheet(d.activas),
-    "Campañas Activas",
+    adsetsSheet(d.activos),
+    "Adsets Detallados",
   );
   if (d.sinClasificar.length > 0) {
     XLSX.utils.book_append_sheet(
       wb,
-      campaignsSheet(d.sinClasificar),
+      adsetsSheet(d.sinClasificar),
       "Sin Clasificar",
     );
   }

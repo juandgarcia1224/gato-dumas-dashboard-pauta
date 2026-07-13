@@ -59,13 +59,12 @@ export default function KpiCards({
       delta: <Delta current={kpis.cpl} prev={kpisPrev?.cpl} invertGood />,
     },
     {
-      label: "Campañas activas hoy",
-      value: fmtInt(kpis.campanasActivas),
+      label: "Adsets activos hoy",
+      value: fmtInt(kpis.adsetsActivos),
       delta: (
-        <Delta
-          current={kpis.campanasActivas}
-          prev={kpisPrev?.campanasActivas}
-        />
+        <span className="text-xs text-neutral-400">
+          {fmtCop(kpis.inversionLifetimeActivos)} consumidos desde su inicio
+        </span>
       ),
     },
   ];

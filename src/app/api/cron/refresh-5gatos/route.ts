@@ -1,9 +1,10 @@
 /**
  * GET /api/cron/refresh-5gatos
- * Cron (cada 3 horas, ver vercel.json): trae insights de Meta del mes en
- * curso + 90 días atrás (agrupado por campaña y mes), aplica el mapeo
- * curso↔campaña y guarda snapshot en el Sheet PROD
- * (11_5Gatos_Snapshot + 12_5Gatos_Cron_Log).
+ * Cron (ver vercel.json): trae insights de Meta a NIVEL ADSET del mes en
+ * curso + 90 días atrás (una fila por adset y mes) + consumo LIFETIME por
+ * adset (date_preset=maximum), aplica el mapeo curso↔adset y guarda snapshot
+ * en el Sheet PROD (13_5Gatos_Adsets_Snapshot + 12_5Gatos_Cron_Log).
+ * La hoja 11 (nivel campaña) queda como histórico legacy: no se escribe más.
  *
  * Seguridad: requiere header `Authorization: Bearer ${CRON_SECRET}`.
  * (Vercel Cron lo envía automáticamente si CRON_SECRET existe como env var.)
@@ -14,10 +15,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { MetaClient, MetaApiError } from "@/lib/meta/client";
-import { fetchEntityMeta } from "@/lib/meta/insights";
+import {
+  fetchAdsetInsightsLifetime,
+  fetchAdsetsMeta,
+  withRateLimitRetry,
+  type AdsetInsight,
+} from "@/lib/meta/adsets";
 import { interpretResult } from "@/lib/meta/transform";
-import type { MetaAction } from "@/lib/meta/types";
-import { loadMapping, matchCampaignAgainstRules, recordUnclassified } from "@/lib/mapping/courses";
+import { loadMapping, matchAdsetAgainstRules, recordUnclassified } from "@/lib/mapping/courses";
 import { getFiveGatosAccountId, getFiveGatosToken } from "@/lib/fivegatos/constants";
 import { getSheetsClient, getSheetId } from "@/lib/sheets/client";
 import { HEADERS, SHEET_TABS } from "@/lib/sheets/schema";
@@ -27,7 +32,9 @@ import { getEnvStatus } from "@/lib/config/env";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-const FIELDS = [
+const CRON_FIELDS = [
+  "adset_id",
+  "adset_name",
   "campaign_id",
   "campaign_name",
   "spend",
@@ -42,21 +49,6 @@ const FIELDS = [
   "date_stop",
 ].join(",");
 
-interface CronInsight {
-  campaign_id?: string;
-  campaign_name?: string;
-  spend?: string;
-  impressions?: string;
-  clicks?: string;
-  ctr?: string;
-  cpc?: string;
-  cpm?: string;
-  actions?: MetaAction[];
-  cost_per_action_type?: MetaAction[];
-  date_start?: string;
-  date_stop?: string;
-}
-
 function isoDaysAgo(days: number): string {
   const d = new Date(Date.now() - days * 86400_000);
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(d);
@@ -66,7 +58,7 @@ function todayIso(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
 }
 
-/** Crea (si faltan) las hojas 11/12 en el Sheet PROD y fija sus headers. */
+/** Crea (si faltan) las hojas 13/12 en el Sheet PROD y fija sus headers. */
 async function ensureFiveGatosTabs(): Promise<void> {
   const sheets = getSheetsClient();
   const spreadsheetId = getSheetId();
@@ -74,7 +66,7 @@ async function ensureFiveGatosTabs(): Promise<void> {
   const present = new Set(
     (meta.data.sheets ?? []).map((s) => s.properties?.title),
   );
-  const wanted = [SHEET_TABS.fiveGatosSnapshot, SHEET_TABS.fiveGatosCronLog];
+  const wanted = [SHEET_TABS.fiveGatosAdsetSnapshot, SHEET_TABS.fiveGatosCronLog];
   const missing = wanted.filter((t) => !present.has(t));
   if (missing.length > 0) {
     await sheets.spreadsheets.batchUpdate({
@@ -150,7 +142,7 @@ export async function GET(req: NextRequest) {
     apiVersion: process.env.META_API_VERSION?.trim() || "v22.0",
   });
 
-  // Asegurar hojas 11/12 ANTES del pull, para que el log de errores y el
+  // Asegurar hojas 13/12 ANTES del pull, para que el log de errores y el
   // circuit breaker funcionen aunque la primera corrida falle.
   if (env.sheetsReady) {
     try {
@@ -161,17 +153,23 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 2) Insights: mes en curso + 90 días atrás, una fila por campaña y mes.
+    // 2) Insights nivel adset: mes en curso + 90 días atrás (una fila por
+    //    adset y mes) + metadatos + lifetime por adset + reglas de mapeo.
     const since = isoDaysAgo(90);
     const until = todayIso();
-    const [insights, statusMap, rules] = await Promise.all([
-      client.getAll<CronInsight>(`${accountId}/insights`, {
-        level: "campaign",
-        fields: FIELDS,
-        time_increment: "monthly",
-        time_range: JSON.stringify({ since, until }),
-      }),
-      fetchEntityMeta(client, accountId, "campaign"),
+    const [insights, adsetsMeta, lifetimeMap, rules] = await Promise.all([
+      withRateLimitRetry(
+        () =>
+          client.getAll<AdsetInsight>(`${accountId}/insights`, {
+            level: "adset",
+            fields: CRON_FIELDS,
+            time_increment: "monthly",
+            time_range: JSON.stringify({ since, until }),
+          }),
+        "cron-insights",
+      ),
+      fetchAdsetsMeta(client, accountId),
+      fetchAdsetInsightsLifetime(client, accountId),
       loadMapping(),
     ]);
 
@@ -181,26 +179,29 @@ export async function GET(req: NextRequest) {
       return Number.isFinite(n) ? n : 0;
     };
 
-    const unclassified = new Map<string, CronInsight>();
+    const unclassified = new Map<string, AdsetInsight>();
     const rows = insights.map((r) => {
       const spend = num(r.spend);
       const result = interpretResult(r.actions, r.cost_per_action_type, spend);
-      const match = matchCampaignAgainstRules(
-        rules,
-        r.campaign_name ?? "",
-        r.campaign_id ?? "",
-      );
-      if (!match && spend > 0 && r.campaign_id) unclassified.set(r.campaign_id, r);
-      const meta = r.campaign_id ? statusMap.get(r.campaign_id) : undefined;
+      const adsetId = r.adset_id ?? "";
+      const meta = adsetId ? adsetsMeta.get(adsetId) : undefined;
+      const name = meta?.name ?? r.adset_name ?? "";
+      const match = matchAdsetAgainstRules(rules, name, adsetId);
+      if (!match && spend > 0 && adsetId) unclassified.set(adsetId, r);
+      const life = adsetId ? lifetimeMap.get(adsetId) : undefined;
       return {
         snapshot_at: snapshotAt,
         month: (r.date_start ?? "").slice(0, 7),
-        campaign_id: r.campaign_id ?? "",
-        campaign_name: r.campaign_name ?? "",
+        adset_id: adsetId,
+        adset_name: name,
+        campaign_id: meta?.campaign?.id ?? meta?.campaign_id ?? r.campaign_id ?? "",
+        campaign_name: meta?.campaign?.name ?? r.campaign_name ?? "",
         tipo: match?.tipo ?? "",
         nombre_normalizado: match?.nombre_normalizado ?? "",
         status: meta?.status ?? "",
         effective_status: meta?.effective_status ?? "",
+        start_time: meta?.start_time ?? "",
+        end_time: meta?.end_time ?? "",
         spend,
         impressions: num(r.impressions),
         clicks: num(r.clicks),
@@ -210,6 +211,7 @@ export async function GET(req: NextRequest) {
         results_type: result.results_type,
         results: result.results,
         cost_per_result: result.cost_per_result,
+        spend_lifetime: num(life?.spend),
         date_start: r.date_start ?? "",
         date_stop: r.date_stop ?? "",
       };
@@ -218,22 +220,26 @@ export async function GET(req: NextRequest) {
     // 3) Guardar snapshot en el Sheet PROD (si Sheets está configurado).
     let sheetInfo = "sheets no configurado (snapshot omitido)";
     if (env.sheetsReady) {
-      const res = await upsertRows(SHEET_TABS.fiveGatosSnapshot, rows, [
+      const res = await upsertRows(SHEET_TABS.fiveGatosAdsetSnapshot, rows, [
         "month",
-        "campaign_id",
+        "adset_id",
       ]);
-      sheetInfo = `snapshot: +${res.added} nuevas, ${res.updated} actualizadas (${res.total} filas)`;
+      sheetInfo = `snapshot adsets: +${res.added} nuevas, ${res.updated} actualizadas (${res.total} filas)`;
     }
 
     // 4) Registrar sin-clasificar en el Sheet de mapeo (throttled).
     await Promise.allSettled(
-      [...unclassified.values()].map((r) =>
-        recordUnclassified({
-          campaign_id: r.campaign_id ?? "",
-          campaign_name: r.campaign_name ?? "",
+      [...unclassified.values()].map((r) => {
+        const meta = r.adset_id ? adsetsMeta.get(r.adset_id) : undefined;
+        return recordUnclassified({
+          adset_id: r.adset_id ?? "",
+          adset_name: meta?.name ?? r.adset_name ?? "",
+          campaign_id: meta?.campaign?.id ?? r.campaign_id ?? "",
+          campaign_name: meta?.campaign?.name ?? r.campaign_name ?? "",
           account_id: accountId,
-        }),
-      ),
+          status: meta?.effective_status ?? "",
+        });
+      }),
     );
 
     if (env.sheetsReady) {
@@ -241,7 +247,7 @@ export async function GET(req: NextRequest) {
         run_at: snapshotAt,
         status: "ok",
         months: `${since}..${until}`,
-        campaigns_count: rows.length,
+        adsets_count: rows.length,
         unclassified_count: unclassified.size,
         duration_ms: Date.now() - started,
         error_message: "",
@@ -250,6 +256,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      nivel: "adset",
       rango: `${since} → ${until}`,
       filas: rows.length,
       sin_clasificar: unclassified.size,
@@ -266,7 +273,7 @@ export async function GET(req: NextRequest) {
         run_at: new Date().toISOString(),
         status: "error",
         months: "",
-        campaigns_count: 0,
+        adsets_count: 0,
         unclassified_count: 0,
         duration_ms: Date.now() - started,
         error_message: msg,

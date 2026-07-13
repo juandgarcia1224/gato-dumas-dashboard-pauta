@@ -17,6 +17,7 @@ export const SHEET_TABS = {
   rangeSummaries: "10_Meta_Range_Summaries",
   fiveGatosSnapshot: "11_5Gatos_Snapshot",
   fiveGatosCronLog: "12_5Gatos_Cron_Log",
+  fiveGatosAdsetSnapshot: "13_5Gatos_Adsets_Snapshot",
 } as const;
 
 export type SheetTab = (typeof SHEET_TABS)[keyof typeof SHEET_TABS];
@@ -245,10 +246,38 @@ export const HEADERS: Record<SheetTab, string[]> = {
     "run_at",
     "status",
     "months",
-    "campaigns_count",
+    "adsets_count",
     "unclassified_count",
     "duration_ms",
     "error_message",
+  ],
+  // Snapshot a NIVEL ADSET (modelo julio 2026: 1 adset = 1 curso/programa).
+  // La hoja 11 (nivel campaña) queda como histórico legacy: no se escribe más.
+  [SHEET_TABS.fiveGatosAdsetSnapshot]: [
+    "snapshot_at",
+    "month",
+    "adset_id",
+    "adset_name",
+    "campaign_id",
+    "campaign_name",
+    "tipo",
+    "nombre_normalizado",
+    "status",
+    "effective_status",
+    "start_time",
+    "end_time",
+    "spend",
+    "impressions",
+    "clicks",
+    "ctr",
+    "cpc",
+    "cpm",
+    "results_type",
+    "results",
+    "cost_per_result",
+    "spend_lifetime",
+    "date_start",
+    "date_stop",
   ],
 };
 
