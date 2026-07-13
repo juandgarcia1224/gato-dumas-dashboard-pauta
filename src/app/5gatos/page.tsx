@@ -7,16 +7,19 @@
 
 import Image from "next/image";
 import ActiveAdsetCard from "@/components/fivegatos/ActiveAdsetCard";
+import AlertsPanel from "@/components/fivegatos/AlertsPanel";
 import KpiCards from "@/components/fivegatos/KpiCards";
 import MonthSelect from "@/components/fivegatos/MonthSelect";
 import { labelMes } from "@/components/fivegatos/labelMes";
 import SummaryTable from "@/components/fivegatos/SummaryTable";
+import { getAlertasProgramacion } from "@/lib/dashboard/programacion-cross";
 import { BENCHMARK_CPL, fmtCop } from "@/lib/fivegatos/constants";
 import {
   currentMonthBogota,
   getFiveGatosMonth,
   isValidMonth,
   monthOptions,
+  type AdsetStats,
 } from "@/lib/fivegatos/data";
 import { getSinClasificarSheetUrl } from "@/lib/mapping/courses";
 
@@ -26,6 +29,27 @@ export const metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Adapta el shape AdsetStats (viewmodel del dashboard) al shape AdsetActivo
+ * que consume el cruce de programación. Ambos tipos convergen en los mismos
+ * campos con nombres ligeramente distintos.
+ */
+function adaptarAdsetsParaCruce(
+  adsets: AdsetStats[],
+): import("@/lib/dashboard/programacion-cross").AdsetActivo[] {
+  return adsets.map((a) => ({
+    id: a.adset_id,
+    name: a.adset_name,
+    campaign_name: a.campaign_name,
+    effective_status: a.effective_status,
+    spend_lifetime: a.spend_lifetime,
+    spend_month: a.spend,
+    start_time: a.start_time,
+    end_time: a.end_time,
+    cpl: a.cpl,
+  }));
+}
 
 function SectionTitle({
   children,
@@ -57,6 +81,16 @@ export default async function FiveGatosPage({
 
   const result = await getFiveGatosMonth(month);
   const sheetUrl = getSinClasificarSheetUrl();
+
+  // Alertas de programación (cruce con Excel del cliente). Nunca lanza.
+  const alertasResult = result.ok
+    ? await getAlertasProgramacion(
+        adaptarAdsetsParaCruce([
+          ...result.data.activos,
+          ...result.data.sinClasificar,
+        ]),
+      )
+    : { alertas: [], programacionDisponible: false };
 
   return (
     <div className="min-h-screen bg-[#f6f4f0] font-sans text-neutral-900">
@@ -114,6 +148,11 @@ export default async function FiveGatosPage({
           </div>
         ) : (
           <main className="mt-8 space-y-12">
+            {/* ── Alertas de programación (cruce con Excel del cliente) ── */}
+            {alertasResult.programacionDisponible && (
+              <AlertsPanel alertas={alertasResult.alertas} />
+            )}
+
             {/* ── KPIs ─────────────────────────────────────── */}
             <section aria-label="Indicadores del mes">
               <KpiCards kpis={result.data.kpis} kpisPrev={result.data.kpisPrev} />
