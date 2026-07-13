@@ -18,21 +18,26 @@ function Delta({
     !Number.isFinite(prev) ||
     prev === 0
   ) {
-    return <span className="text-xs text-neutral-400">vs mes anterior: —</span>;
+    return <span className="text-xs text-lab-faint">vs mes anterior: —</span>;
   }
   const pct = ((current - prev) / prev) * 100;
   const up = pct >= 0;
   const good = invertGood ? !up : up;
   return (
     <span
-      className={`text-xs font-semibold ${good ? "text-emerald-700" : "text-[#B8232A]"}`}
+      className={`text-xs font-semibold tabular-nums ${good ? "text-lab-salvia" : "text-lab-terracota"}`}
     >
       {up ? "▲" : "▼"} {Math.abs(pct).toLocaleString("es-CO", { maximumFractionDigits: 1 })}%
-      <span className="ml-1 font-normal text-neutral-400">vs mes anterior</span>
+      <span className="ml-1 font-normal text-lab-faint">vs mes anterior</span>
     </span>
   );
 }
 
+/**
+ * KPIs "The Lab": grid rígido de 4 columnas separadas por hairlines (no
+ * cards flotantes). Cada celda: eyebrow mono → número grande en Plex Sans
+ * SemiBold → delta. Franja de accent (petróleo/menta) de 3px a la izquierda.
+ */
 export default function KpiCards({
   kpis,
   kpisPrev,
@@ -62,7 +67,7 @@ export default function KpiCards({
       label: "Adsets activos hoy",
       value: fmtInt(kpis.adsetsActivos),
       delta: (
-        <span className="text-xs text-neutral-400">
+        <span className="text-xs text-lab-faint">
           {fmtCop(kpis.inversionLifetimeActivos)} consumidos desde su inicio
         </span>
       ),
@@ -70,14 +75,20 @@ export default function KpiCards({
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map((c) => (
-        <div
-          key={c.label}
-          className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm"
-        >
-          <p className="text-sm font-medium text-neutral-500">{c.label}</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-neutral-900 tabular-nums">
+    <div className="grid grid-cols-1 gap-px border border-lab-rule bg-lab-rule sm:grid-cols-2 lg:grid-cols-4">
+      {cards.map((c, i) => (
+        <div key={c.label} className="relative bg-lab-surface p-5 pl-6">
+          <span
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-[3px] bg-lab-accent"
+          />
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="lab-eyebrow text-[10px] text-lab-muted">{c.label}</p>
+            <span className="lab-eyebrow shrink-0 text-[9px] text-lab-faint">
+              0{i + 1} / 04
+            </span>
+          </div>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-lab-ink-strong tabular-nums">
             {c.value}
           </p>
           <p className="mt-2">{c.delta}</p>

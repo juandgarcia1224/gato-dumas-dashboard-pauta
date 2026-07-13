@@ -1433,6 +1433,121 @@ body::before {
   }
 }
 
+/* =========================================================
+   THE LAB · 5 GATOS (Brand House 2026 — Gato Dumas)
+   Sistema visual "El Laboratorio": retícula suiza, hairlines,
+   alto contraste. Tokens con prefijo --lab-*; SOLO los usa la
+   vista /5gatos (+ /login). No toca el sistema Cloud Design
+   de la ruta "/" (tokens --bg/--ink de arriba).
+   Paleta oficial: petróleo #07344d · charcoal #363637 ·
+   teal #477a86 · menta #94c0b3 · coconut #ebe9dd.
+   ========================================================= */
+.lab {
+  /* Fondo y superficies */
+  --lab-bg: #faf8f2;
+  --lab-surface: #ffffff;
+  --lab-coconut: #ebe9dd;
+  --lab-coconut-deep: #e2dfcf;
+
+  /* Tinta */
+  --lab-ink: #363637;
+  --lab-ink-strong: #1f1f20;
+  --lab-muted: #75756d;
+  --lab-faint: #a2a297;
+
+  /* Hairlines */
+  --lab-rule: rgba(54, 54, 55, 0.14);
+  --lab-rule-strong: rgba(54, 54, 55, 0.38);
+
+  /* Acentos institucionales */
+  --lab-petroleo: #07344d;
+  --lab-accent: #07344d; /* petróleo en claro · menta en oscuro */
+  --lab-teal: #477a86;
+  --lab-teal-soft: #e4edea;
+  --lab-menta: #94c0b3;
+  --lab-menta-soft: #eaf2ee;
+
+  /* Semáforo / severidad (fuera de paleta institucional, coherentes) */
+  --lab-salvia: #4d7a63;
+  --lab-ambar: #a17a2b;
+  --lab-terracota: #a53a2f;
+  --lab-salvia-soft: #dfe6dc;
+  --lab-ambar-soft: #eee1c4;
+  --lab-terracota-soft: #eedcd6;
+
+  /* Tipografía — IBM Plex vía next/font (variables en el wrapper) */
+  --lab-font-sans: var(--font-plex-sans, "IBM Plex Sans"), "IBM Plex Sans",
+    "Söhne", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --lab-font-mono: var(--font-plex-mono, "IBM Plex Mono"), "IBM Plex Mono",
+    "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --lab-font-display: "Druk", "Druk Text", "Haettenschweiler", "Impact",
+    "Helvetica Neue Condensed Bold", "Arial Narrow", sans-serif;
+
+  font-family: var(--lab-font-sans);
+  background: var(--lab-bg);
+  color: var(--lab-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  .lab {
+    --lab-bg: #07344d;
+    --lab-surface: #0b3b57;
+    --lab-coconut: rgba(235, 233, 221, 0.1);
+    --lab-coconut-deep: rgba(235, 233, 221, 0.16);
+
+    --lab-ink: #ebe9dd;
+    --lab-ink-strong: #f5f3e9;
+    --lab-muted: rgba(235, 233, 221, 0.62);
+    --lab-faint: rgba(235, 233, 221, 0.4);
+
+    --lab-rule: rgba(235, 233, 221, 0.16);
+    --lab-rule-strong: rgba(235, 233, 221, 0.42);
+
+    --lab-accent: #94c0b3;
+    --lab-teal: #74a2ad;
+    --lab-teal-soft: rgba(71, 122, 134, 0.24);
+    --lab-menta-soft: rgba(148, 192, 179, 0.14);
+
+    --lab-salvia: #8fb9a0;
+    --lab-ambar: #c9a35a;
+    --lab-terracota: #cf7c6e;
+    --lab-salvia-soft: rgba(77, 122, 99, 0.24);
+    --lab-ambar-soft: rgba(161, 122, 43, 0.24);
+    --lab-terracota-soft: rgba(165, 58, 47, 0.26);
+  }
+  .lab .lab-logo {
+    filter: invert(1) brightness(0.95);
+  }
+}
+
+/* Display condensed — SOLO título "Cinco Gatos" y KPI-labels de síntesis */
+.lab-display {
+  font-family: var(--lab-font-display);
+  font-weight: 900;
+  font-stretch: 75%;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+}
+/* Mono técnico — dato, IDs, ejes */
+.lab-mono {
+  font-family: var(--lab-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* Etiqueta laboratorio — mono uppercase con tracking amplio */
+.lab-eyebrow {
+  font-family: var(--lab-font-mono);
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+/* Marco fino (logo / sellos) */
+.lab-frame {
+  border: 1px solid var(--lab-rule-strong);
+}
+
 /* accessibility */
 .sr-only {
   position: absolute;

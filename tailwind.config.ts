@@ -26,6 +26,35 @@ const config: Config = {
         warn: "var(--warn)",
         crit: "var(--crit)",
         info: "var(--info)",
+        /**
+         * The Lab · 5 Gatos (Brand House 2026). Los valores viven como
+         * custom properties --lab-* en globals.css, scoped a la clase .lab
+         * (light + prefers-color-scheme: dark). Solo para /5gatos y /login.
+         */
+        lab: {
+          bg: "var(--lab-bg)",
+          surface: "var(--lab-surface)",
+          coconut: "var(--lab-coconut)",
+          "coconut-deep": "var(--lab-coconut-deep)",
+          ink: "var(--lab-ink)",
+          "ink-strong": "var(--lab-ink-strong)",
+          muted: "var(--lab-muted)",
+          faint: "var(--lab-faint)",
+          rule: "var(--lab-rule)",
+          "rule-strong": "var(--lab-rule-strong)",
+          petroleo: "var(--lab-petroleo)",
+          accent: "var(--lab-accent)",
+          teal: "var(--lab-teal)",
+          "teal-soft": "var(--lab-teal-soft)",
+          menta: "var(--lab-menta)",
+          "menta-soft": "var(--lab-menta-soft)",
+          salvia: "var(--lab-salvia)",
+          ambar: "var(--lab-ambar)",
+          terracota: "var(--lab-terracota)",
+          "salvia-soft": "var(--lab-salvia-soft)",
+          "ambar-soft": "var(--lab-ambar-soft)",
+          "terracota-soft": "var(--lab-terracota-soft)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-raleway)", "Raleway", "system-ui", "sans-serif"],

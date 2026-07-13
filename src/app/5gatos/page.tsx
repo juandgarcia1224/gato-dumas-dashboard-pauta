@@ -3,6 +3,9 @@
  * NIVEL ADSET (1 adset = 1 curso/programa): inversión mensual por curso y
  * programa + adsets activos con consumo lifetime desde su inicio real.
  * Server Component: los datos se traen en el servidor (Meta READ-ONLY).
+ *
+ * Sistema visual: "The Lab" (Brand House 2026) — retícula suiza, hairlines,
+ * IBM Plex Sans/Mono + display condensed. Tokens --lab-* en globals.css.
  */
 
 import Image from "next/image";
@@ -21,6 +24,7 @@ import {
   monthOptions,
   type AdsetStats,
 } from "@/lib/fivegatos/data";
+import { labFontVars } from "@/lib/fivegatos/fonts";
 import { getSinClasificarSheetUrl } from "@/lib/mapping/courses";
 
 export const metadata = {
@@ -52,18 +56,24 @@ function adaptarAdsetsParaCruce(
 }
 
 function SectionTitle({
+  num,
   children,
   sub,
 }: {
+  /** Numeración estilo laboratorio, ej. "02 · Cursos". */
+  num?: string;
   children: React.ReactNode;
   sub?: string;
 }) {
   return (
     <div className="mb-4">
-      <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">
+      {num && (
+        <p className="lab-eyebrow text-[10px] text-lab-teal">{num}</p>
+      )}
+      <h2 className="mt-1 text-lg font-semibold tracking-tight text-lab-ink-strong sm:text-xl">
         {children}
       </h2>
-      {sub && <p className="mt-1 text-sm text-neutral-500">{sub}</p>}
+      {sub && <p className="mt-1 text-sm text-lab-muted">{sub}</p>}
     </div>
   );
 }
@@ -93,35 +103,45 @@ export default async function FiveGatosPage({
     : { alertas: [], programacionDisponible: false };
 
   return (
-    <div className="min-h-screen bg-[#f6f4f0] font-sans text-neutral-900">
+    <div className={`lab ${labFontVars} min-h-screen`}>
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         {/* ── Header ─────────────────────────────────────────── */}
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-neutral-900/90 pb-5">
+        <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-5 border-b border-lab-rule-strong pb-6">
           <div className="flex items-center gap-4">
-            <Image
-              src="/assets/logo_gato_dumas.png"
-              alt="Gato Dumas"
-              width={56}
-              height={56}
-              className="h-12 w-12 rounded-full object-contain sm:h-14 sm:w-14"
-              priority
-            />
+            <span className="lab-frame inline-flex shrink-0 bg-lab-surface p-1.5">
+              <Image
+                src="/assets/logo_gato_dumas.png"
+                alt="Gato Dumas"
+                width={56}
+                height={56}
+                className="lab-logo h-11 w-11 object-contain sm:h-12 sm:w-12"
+                priority
+              />
+            </span>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-                5 Gatos <span className="text-[#B8232A]">·</span> Bucaramanga
-              </h1>
-              <p className="text-sm text-neutral-500">
+              <p className="lab-eyebrow text-[10px] tracking-[0.28em] text-lab-muted">
+                Instituto Gato Dumas
+              </p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
+                <h1 className="lab-display text-4xl leading-none text-lab-ink-strong sm:text-5xl">
+                  Cinco Gatos
+                </h1>
+                <span className="text-base font-medium text-lab-muted">
+                  Bucaramanga
+                </span>
+              </div>
+              <p className="mt-1.5 text-sm text-lab-muted">
                 Pauta digital · Gato Dumas · {labelMes(month)}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <MonthSelect value={month} options={monthOptions(12)} />
             <a
               href={`/api/5gatos/export?month=${month}`}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#B8232A] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#9c1d23] focus:outline-none focus:ring-2 focus:ring-[#B8232A]/40"
+              className="lab-mono inline-flex items-center gap-2 rounded-sm border border-lab-accent px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-lab-accent transition-colors hover:bg-lab-accent hover:text-lab-bg focus:outline-none focus-visible:ring-1 focus-visible:ring-lab-accent focus-visible:ring-offset-2"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
@@ -133,14 +153,14 @@ export default async function FiveGatosPage({
 
         {!result.ok ? (
           /* ── Estado de error amable (nunca stack traces) ──── */
-          <div className="mt-16 flex flex-col items-center rounded-2xl border border-neutral-200 bg-white px-6 py-16 text-center shadow-sm">
+          <div className="mt-16 flex flex-col items-center rounded-sm border border-lab-rule bg-lab-surface px-6 py-16 text-center">
             <span className="text-4xl" aria-hidden>
               ⏳
             </span>
-            <h2 className="mt-4 text-xl font-bold">
+            <h2 className="mt-4 text-xl font-semibold text-lab-ink-strong">
               Estamos actualizando los datos
             </h2>
-            <p className="mt-2 max-w-md text-base text-neutral-500">
+            <p className="mt-2 max-w-md text-base text-lab-muted">
               La información de Meta se está sincronizando. Vuelve a intentarlo
               en unos minutos. Si el problema persiste, escríbele a Juan
               (juandgarcia1224@gmail.com).
@@ -155,8 +175,11 @@ export default async function FiveGatosPage({
 
             {/* ── KPIs ─────────────────────────────────────── */}
             <section aria-label="Indicadores del mes">
+              <p className="lab-eyebrow mb-3 text-[10px] text-lab-teal">
+                01 · Indicadores
+              </p>
               <KpiCards kpis={result.data.kpis} kpisPrev={result.data.kpisPrev} />
-              <p className="mt-3 text-right text-xs text-neutral-400">
+              <p className="lab-mono mt-3 text-right text-[10px] uppercase tracking-wider text-lab-faint">
                 Datos del {result.data.dateStart} al {result.data.dateStop} ·
                 Fuente: Meta Ads
               </p>
@@ -164,7 +187,10 @@ export default async function FiveGatosPage({
 
             {/* ── Resumen por Curso ────────────────────────── */}
             <section aria-label="Resumen por curso">
-              <SectionTitle sub="Inversión y resultados de cursos cortos, clases y masterclass (suma de sus adsets).">
+              <SectionTitle
+                num="02 · Cursos"
+                sub="Inversión y resultados de cursos cortos, clases y masterclass (suma de sus adsets)."
+              >
                 Resumen por Curso
               </SectionTitle>
               <SummaryTable rows={result.data.cursos} firstColLabel="Curso" />
@@ -172,7 +198,10 @@ export default async function FiveGatosPage({
 
             {/* ── Resumen por Programa ─────────────────────── */}
             <section aria-label="Resumen por programa">
-              <SectionTitle sub="Diplomados y programas profesionales.">
+              <SectionTitle
+                num="03 · Programas"
+                sub="Diplomados y programas profesionales."
+              >
                 Resumen por Programa
               </SectionTitle>
               <SummaryTable
@@ -184,12 +213,13 @@ export default async function FiveGatosPage({
             {/* ── Adsets activos ───────────────────────────── */}
             <section aria-label="Adsets activos">
               <SectionTitle
+                num="04 · Adsets"
                 sub={`Un adset por curso o programa · Semáforo según CPL del mes vs benchmark de ${fmtCop(BENCHMARK_CPL)}.`}
               >
                 Adsets activos ahora
               </SectionTitle>
               {result.data.activos.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-neutral-300 bg-white/60 px-5 py-8 text-center text-base text-neutral-500">
+                <p className="rounded-sm border border-dashed border-lab-rule-strong bg-lab-surface px-5 py-8 text-center text-base text-lab-muted">
                   No hay adsets activos en este momento.
                 </p>
               ) : (
@@ -205,28 +235,36 @@ export default async function FiveGatosPage({
             {result.data.sinClasificar.length > 0 && (
               <section
                 aria-label="Adsets sin clasificar"
-                className="rounded-xl border border-amber-200 bg-amber-50/60 p-5"
+                className="border border-dashed border-lab-rule-strong bg-lab-surface p-5"
               >
-                <h3 className="text-sm font-bold text-amber-900">
+                <p className="lab-eyebrow text-[10px] text-lab-ambar">
+                  Pendiente de mapeo
+                </p>
+                <h3 className="mt-1.5 text-sm font-semibold text-lab-ink-strong">
                   {result.data.sinClasificar.length}{" "}
                   {result.data.sinClasificar.length === 1
                     ? "adset sin curso o programa asignado"
                     : "adsets sin curso o programa asignado"}
                 </h3>
-                <p className="mt-1 text-sm text-amber-800/80">
+                <p className="mt-1 text-sm text-lab-muted">
                   Estos adsets aún no están asociados a un curso o programa y
                   no aparecen en los resúmenes de arriba.
                 </p>
-                <ul className="mt-3 space-y-1 text-sm text-amber-900">
+                <ul className="mt-3 divide-y divide-lab-rule text-sm text-lab-ink">
                   {result.data.sinClasificar.map((a) => (
-                    <li key={a.adset_id} className="flex justify-between gap-4">
+                    <li
+                      key={a.adset_id}
+                      className="flex justify-between gap-4 py-2"
+                    >
                       <span className="truncate">
                         {a.adset_name}
-                        <span className="ml-2 text-xs text-amber-700/70">
+                        <span className="lab-mono ml-2 text-[10px] uppercase tracking-wider text-lab-faint">
                           {a.campaign_name}
                         </span>
                       </span>
-                      <span className="shrink-0 tabular-nums">{fmtCop(a.spend)}</span>
+                      <span className="shrink-0 font-medium tabular-nums">
+                        {fmtCop(a.spend)}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -235,7 +273,7 @@ export default async function FiveGatosPage({
                     href={sheetUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 inline-block text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-[#B8232A]"
+                    className="mt-3 inline-block text-sm font-semibold text-lab-teal underline underline-offset-2 transition-colors hover:text-lab-accent"
                   >
                     Corregir en el Sheet de mapeo →
                   </a>
@@ -244,7 +282,7 @@ export default async function FiveGatosPage({
             )}
 
             {/* ── Footer ───────────────────────────────────── */}
-            <footer className="border-t border-neutral-200 pt-5 pb-8 text-center text-xs text-neutral-400">
+            <footer className="lab-mono border-t border-lab-rule pt-5 pb-8 text-center text-[10px] uppercase tracking-[0.18em] text-lab-faint">
               Actualizado{" "}
               {new Date(result.data.updatedAt).toLocaleString("es-CO", {
                 timeZone: "America/Bogota",

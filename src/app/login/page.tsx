@@ -5,6 +5,7 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
+import { labFontVars } from "@/lib/fivegatos/fonts";
 
 export const metadata = {
   title: "Entrar — 5 Gatos · Bucaramanga",
@@ -26,20 +27,26 @@ export default async function LoginPage({
   );
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f6f4f0] px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
-        <Image
-          src="/assets/logo_gato_dumas.png"
-          alt="Gato Dumas"
-          width={72}
-          height={72}
-          className="mx-auto h-16 w-16 rounded-full object-contain"
-          priority
-        />
-        <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-neutral-900">
-          5 Gatos <span className="text-[#B8232A]">·</span> Bucaramanga
+    <div className={`lab ${labFontVars} flex min-h-screen items-center justify-center px-4`}>
+      <div className="w-full max-w-sm rounded-sm border border-lab-rule bg-lab-surface p-8 text-center">
+        <span className="lab-frame mx-auto inline-flex bg-lab-surface p-1.5">
+          <Image
+            src="/assets/logo_gato_dumas.png"
+            alt="Gato Dumas"
+            width={72}
+            height={72}
+            className="lab-logo h-14 w-14 object-contain"
+            priority
+          />
+        </span>
+        <p className="lab-eyebrow mt-4 text-[10px] tracking-[0.28em] text-lab-muted">
+          Instituto Gato Dumas
+        </p>
+        <h1 className="lab-display mt-1 text-3xl leading-none text-lab-ink-strong">
+          Cinco Gatos
         </h1>
-        <p className="mt-2 text-sm text-neutral-500">
+        <p className="mt-1 text-sm font-medium text-lab-muted">Bucaramanga</p>
+        <p className="mt-3 text-sm text-lab-muted">
           Reporte de pauta digital de Gato Dumas Bucaramanga. Entra con tu
           cuenta de Google autorizada.
         </p>
@@ -54,7 +61,7 @@ export default async function LoginPage({
           >
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-3 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-base font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-[#B8232A]/30"
+              className="flex w-full items-center justify-center gap-3 rounded-sm border border-lab-rule-strong bg-lab-surface px-4 py-3 text-base font-semibold text-lab-ink transition hover:bg-lab-coconut focus:outline-none focus-visible:ring-1 focus-visible:ring-lab-accent"
             >
               <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden>
                 <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/>
@@ -66,13 +73,13 @@ export default async function LoginPage({
             </button>
           </form>
         ) : (
-          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="mt-6 rounded-sm border border-lab-rule border-l-[3px] border-l-lab-ambar bg-lab-ambar-soft px-4 py-3 text-left text-sm text-lab-ink">
             El acceso con Google aún no está habilitado. Juan debe configurar
             las credenciales OAuth (ver docs/LOGIN_SETUP.md).
           </div>
         )}
 
-        <p className="mt-6 text-xs text-neutral-400">
+        <p className="lab-mono mt-6 text-[10px] uppercase tracking-wider text-lab-faint">
           ¿No tienes acceso? Escríbele a Juan · juandgarcia1224@gmail.com
         </p>
       </div>

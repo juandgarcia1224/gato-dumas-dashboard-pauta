@@ -12,12 +12,14 @@ export default function MonthSelect({
 }) {
   const router = useRouter();
   return (
-    <label className="flex items-center gap-2 text-sm text-neutral-600">
-      <span className="hidden sm:inline font-medium">Mes</span>
+    <label className="flex items-center gap-2">
+      <span className="lab-eyebrow hidden text-[10px] text-lab-muted sm:inline">
+        Mes
+      </span>
       <select
         value={value}
         onChange={(e) => router.push(`/5gatos?month=${e.target.value}`)}
-        className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base font-semibold text-neutral-900 shadow-sm outline-none focus:border-[#B8232A] focus:ring-2 focus:ring-[#B8232A]/20"
+        className="lab-mono rounded-sm border border-lab-rule-strong bg-lab-surface px-3 py-2.5 text-sm font-medium text-lab-ink outline-none transition-colors focus:border-lab-accent focus:ring-1 focus:ring-lab-accent"
         aria-label="Seleccionar mes"
       >
         {options.map((m) => (

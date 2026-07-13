@@ -68,6 +68,12 @@ export default function SummaryTable({
     };
   }, [rows]);
 
+  /** Máximo de inversión del grupo, para el bar track de distribución. */
+  const maxInversion = useMemo(
+    () => rows.reduce((m, r) => Math.max(m, r.inversion), 0),
+    [rows],
+  );
+
   function onSort(key: SortKey) {
     if (key === sortKey) setAsc(!asc);
     else {
@@ -78,17 +84,17 @@ export default function SummaryTable({
 
   if (rows.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-neutral-300 bg-white/60 px-5 py-8 text-center text-base text-neutral-500">
+      <p className="rounded-sm border border-dashed border-lab-rule-strong bg-lab-surface px-5 py-8 text-center text-base text-lab-muted">
         Sin inversión registrada este mes.
       </p>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
+    <div className="overflow-x-auto border border-lab-rule bg-lab-surface">
       <table className="w-full min-w-[860px] text-left">
         <thead>
-          <tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
+          <tr className="border-b border-lab-rule bg-lab-coconut-deep">
             {COLS.map((c) => (
               <th
                 key={c.key}
@@ -97,8 +103,8 @@ export default function SummaryTable({
                 <button
                   type="button"
                   onClick={() => onSort(c.key)}
-                  className={`inline-flex items-center gap-1 font-semibold hover:text-[#B8232A] ${
-                    sortKey === c.key ? "text-[#B8232A]" : ""
+                  className={`lab-eyebrow inline-flex items-center gap-1 text-[10px] transition-colors hover:text-lab-teal ${
+                    sortKey === c.key ? "text-lab-accent" : "text-lab-muted"
                   }`}
                 >
                   {c.key === "nombre" ? firstColLabel : c.label}
@@ -114,42 +120,54 @@ export default function SummaryTable({
           {sorted.map((r) => (
             <tr
               key={r.nombre}
-              className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50"
+              className="border-b border-lab-rule last:border-0 hover:bg-lab-coconut"
             >
-              <td className="px-5 py-3.5 text-base font-semibold text-neutral-900">
+              <td className="px-5 py-3.5 text-base font-semibold text-lab-ink-strong">
                 {r.nombre}
                 {r.adsets > 1 && (
-                  <span className="ml-2 text-xs font-normal text-neutral-400">
+                  <span className="lab-mono ml-2 text-[10px] font-normal uppercase tracking-wider text-lab-faint">
                     {r.adsets} adsets
                   </span>
                 )}
               </td>
-              <td className="px-4 py-3.5 text-right text-base font-semibold tabular-nums text-neutral-900">
+              <td className="px-4 py-3.5 text-right text-base font-semibold tabular-nums text-lab-ink-strong">
                 {fmtCop(r.inversion)}
+                {/* Bar track de distribución (teal institucional) */}
+                <span
+                  aria-hidden
+                  className="ml-auto mt-1.5 block h-[3px] w-24 bg-lab-coconut-deep"
+                >
+                  <span
+                    className="block h-full bg-lab-teal"
+                    style={{
+                      width: `${maxInversion > 0 ? Math.max(2, Math.round((r.inversion / maxInversion) * 100)) : 0}%`,
+                    }}
+                  />
+                </span>
               </td>
-              <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
+              <td className="px-4 py-3.5 text-right text-base tabular-nums text-lab-ink">
                 {fmtCop(r.inversionLifetime)}
               </td>
-              <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
+              <td className="px-4 py-3.5 text-right text-base tabular-nums text-lab-ink">
                 {fmtInt(r.impressions)}
               </td>
-              <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
+              <td className="px-4 py-3.5 text-right text-base tabular-nums text-lab-ink">
                 {fmtInt(r.clicks)}
               </td>
-              <td className="px-4 py-3.5 text-right text-base font-semibold tabular-nums text-neutral-900">
+              <td className="px-4 py-3.5 text-right text-base font-semibold tabular-nums text-lab-ink-strong">
                 {fmtInt(r.leads)}
               </td>
-              <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
+              <td className="px-4 py-3.5 text-right text-base tabular-nums text-lab-ink">
                 {fmtCop(r.cpl)}
               </td>
-              <td className="px-4 py-3.5 text-right text-base tabular-nums text-neutral-700">
+              <td className="px-4 py-3.5 text-right text-base tabular-nums text-lab-ink">
                 {fmtInt(r.adsetsActivos)}
               </td>
             </tr>
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-neutral-300 bg-neutral-50 text-base font-bold text-neutral-900">
+          <tr className="border-t border-lab-rule-strong bg-lab-coconut text-base font-bold text-lab-ink-strong">
             <td className="px-5 py-3.5">Total</td>
             <td className="px-4 py-3.5 text-right tabular-nums">{fmtCop(totals.inversion)}</td>
             <td className="px-4 py-3.5 text-right tabular-nums">{fmtCop(totals.inversionLifetime)}</td>
