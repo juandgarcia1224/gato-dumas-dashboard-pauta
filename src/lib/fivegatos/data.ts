@@ -1,35 +1,57 @@
 /**
- * Capa de datos del dashboard cliente 5 Gatos · Bucaramanga.
+ * Capa de datos del dashboard cliente 5 Gatos · Bucaramanga — NIVEL ADSET.
  *
- * Lee Meta Insights (SOLO lectura) a nivel campaña para un mes dado,
- * aplica el mapeo curso↔campaña y produce el viewmodel de la página
- * /5gatos y del export XLSX. Cachea 10 min por mes (unstable_cache).
+ * Modelo de Juan (agencia): 1 adset = 1 curso o programa. Las campañas son
+ * contenedores; el dashboard clasifica y agrupa ADSETS.
+ *
+ * Lee Meta (SOLO lectura):
+ *   - edge /adsets → metadatos (campaña padre, fechas, presupuestos, estado)
+ *   - insights level=adset del mes seleccionado (y del mes anterior)
+ *   - insights level=adset date_preset=maximum → gasto LIFETIME desde el
+ *     inicio real de cada adset
+ * Aplica el mapeo curso↔adset y produce el viewmodel de /5gatos y del
+ * export XLSX. Cachea 10 min por mes (unstable_cache).
  */
 
 import { unstable_cache } from "next/cache";
 import { MetaClient } from "../meta/client";
-import { fetchEntityMeta, fetchInsights } from "../meta/insights";
+import {
+  activeAdsets,
+  fetchAdsetInsightsLifetime,
+  fetchAdsetInsightsRange,
+  fetchAdsetsMeta,
+  type AdsetInsight,
+  type AdsetMeta,
+} from "../meta/adsets";
 import { interpretResult } from "../meta/transform";
-import type { RawInsight } from "../meta/types";
 import {
   loadMapping,
-  matchCampaignAgainstRules,
+  matchAdsetAgainstRules,
   recordUnclassified,
 } from "../mapping/courses";
-import type { MappingTipo } from "../mapping/types";
+import type { MappingRule, MappingTipo } from "../mapping/types";
 import { getFiveGatosAccountId, getFiveGatosToken, semaforoCpl, type Semaforo } from "./constants";
 
 // ---------------------------------------------------------------------------
 // Tipos del viewmodel
 // ---------------------------------------------------------------------------
 
-export interface CampaignMonthStats {
+export interface AdsetStats {
+  adset_id: string;
+  adset_name: string;
   campaign_id: string;
   campaign_name: string;
   tipo: MappingTipo | null;
   nombre_normalizado: string | null;
   status: string;
   effective_status: string;
+  /** ISO de Meta (con offset) o null si Meta no lo reporta. */
+  start_time: string | null;
+  /** null = sin fecha fin ("hasta que se pause"). */
+  end_time: string | null;
+  daily_budget: number | null;
+  lifetime_budget: number | null;
+  // ── Métricas del MES seleccionado ──
   spend: number;
   impressions: number;
   clicks: number;
@@ -40,24 +62,36 @@ export interface CampaignMonthStats {
   cpl: number | null;
   results_type: string;
   semaforo: Semaforo;
+  // ── Métricas LIFETIME (desde el inicio real del adset) ──
+  spend_lifetime: number;
+  leads_lifetime: number;
+  cpl_lifetime: number | null;
 }
 
 export interface GroupSummaryRow {
   nombre: string;
   tipo: MappingTipo;
+  /** Inversión del mes seleccionado. */
   inversion: number;
+  /** Inversión acumulada desde el inicio de los adsets del grupo. */
+  inversionLifetime: number;
   impressions: number;
   clicks: number;
   leads: number;
   cpl: number | null;
-  campaigns: number;
+  /** Total de adsets del grupo con actividad en el mes. */
+  adsets: number;
+  /** Adsets del grupo activos hoy (effective_status=ACTIVE). */
+  adsetsActivos: number;
 }
 
 export interface KpiBlock {
   inversion: number;
   leads: number;
   cpl: number | null;
-  campanasActivas: number;
+  adsetsActivos: number;
+  /** Gasto lifetime acumulado de los adsets activos hoy. */
+  inversionLifetimeActivos: number;
 }
 
 export interface FiveGatosMonthData {
@@ -69,9 +103,11 @@ export interface FiveGatosMonthData {
   kpisPrev: KpiBlock | null;
   cursos: GroupSummaryRow[];
   programas: GroupSummaryRow[];
-  activas: CampaignMonthStats[];
-  sinClasificar: CampaignMonthStats[];
-  campaigns: CampaignMonthStats[];
+  /** Adsets activos AHORA (effective_status=ACTIVE), con lifetime. */
+  activos: AdsetStats[];
+  sinClasificar: AdsetStats[];
+  /** Todos los adsets con actividad en el mes (para el XLSX). */
+  adsets: AdsetStats[];
 }
 
 export type FiveGatosResult =
@@ -127,7 +163,7 @@ export function monthOptions(count = 12): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Fetch + agregación
+// Construcción de stats por adset
 // ---------------------------------------------------------------------------
 
 function toNum(v: string | undefined): number {
@@ -135,77 +171,111 @@ function toNum(v: string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-async function buildMonthStats(
-  client: MetaClient,
-  accountId: string,
-  month: string,
-  statusMap: Map<string, { status?: string; effective_status?: string }>,
-  rules: Awaited<ReturnType<typeof loadMapping>>,
-): Promise<CampaignMonthStats[]> {
-  const { since, until } = monthRange(month);
-  const insights = await fetchInsights(
-    client,
-    accountId,
-    "campaign",
-    { dateStart: since, dateStop: until },
-    false, // agregado del rango, no diario
-  );
+function toNumOrNull(v: string | undefined): number | null {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
-  return insights.map((row: RawInsight) => {
-    const spend = toNum(row.spend);
-    const result = interpretResult(row.actions, row.cost_per_action_type, spend);
-    const leads = result.results ?? 0;
-    const cpl = leads > 0 ? spend / leads : null;
-    const meta = row.campaign_id ? statusMap.get(row.campaign_id) : undefined;
-    const match = matchCampaignAgainstRules(
-      rules,
-      row.campaign_name ?? "",
-      row.campaign_id ?? "",
-    );
-    return {
-      campaign_id: row.campaign_id ?? "",
-      campaign_name: row.campaign_name ?? "",
-      tipo: match?.tipo ?? null,
-      nombre_normalizado: match?.nombre_normalizado ?? null,
-      status: meta?.status ?? "",
-      effective_status: meta?.effective_status ?? "",
-      spend,
-      impressions: toNum(row.impressions),
-      clicks: toNum(row.clicks),
-      ctr: toNum(row.ctr),
-      cpc: row.cpc ? toNum(row.cpc) : null,
-      cpm: row.cpm ? toNum(row.cpm) : null,
-      leads,
-      cpl,
-      results_type: result.results_type,
-      semaforo: semaforoCpl(cpl),
-    };
-  });
+interface LifetimeAgg {
+  spend: number;
+  leads: number;
+  cpl: number | null;
+}
+
+function lifetimeOf(row: AdsetInsight | undefined): LifetimeAgg {
+  if (!row) return { spend: 0, leads: 0, cpl: null };
+  const spend = toNum(row.spend);
+  const result = interpretResult(row.actions, row.cost_per_action_type, spend);
+  const leads = result.results ?? 0;
+  return { spend, leads, cpl: leads > 0 ? spend / leads : null };
+}
+
+function buildAdsetStats(
+  adsetId: string,
+  monthRow: AdsetInsight | undefined,
+  lifetimeRow: AdsetInsight | undefined,
+  meta: AdsetMeta | undefined,
+  rules: MappingRule[],
+): AdsetStats {
+  const name =
+    meta?.name ?? monthRow?.adset_name ?? lifetimeRow?.adset_name ?? "";
+  const spend = toNum(monthRow?.spend);
+  const result = interpretResult(
+    monthRow?.actions,
+    monthRow?.cost_per_action_type,
+    spend,
+  );
+  const leads = result.results ?? 0;
+  const cpl = leads > 0 ? spend / leads : null;
+  const life = lifetimeOf(lifetimeRow);
+  const match = matchAdsetAgainstRules(rules, name, adsetId);
+
+  return {
+    adset_id: adsetId,
+    adset_name: name,
+    campaign_id:
+      meta?.campaign?.id ??
+      meta?.campaign_id ??
+      monthRow?.campaign_id ??
+      lifetimeRow?.campaign_id ??
+      "",
+    campaign_name:
+      meta?.campaign?.name ??
+      monthRow?.campaign_name ??
+      lifetimeRow?.campaign_name ??
+      "",
+    tipo: match?.tipo ?? null,
+    nombre_normalizado: match?.nombre_normalizado ?? null,
+    status: meta?.status ?? "",
+    effective_status: meta?.effective_status ?? "",
+    start_time: meta?.start_time ?? null,
+    end_time: meta?.end_time ?? null,
+    daily_budget: toNumOrNull(meta?.daily_budget),
+    lifetime_budget: toNumOrNull(meta?.lifetime_budget),
+    spend,
+    impressions: toNum(monthRow?.impressions),
+    clicks: toNum(monthRow?.clicks),
+    ctr: toNum(monthRow?.ctr),
+    cpc: monthRow?.cpc ? toNum(monthRow.cpc) : null,
+    cpm: monthRow?.cpm ? toNum(monthRow.cpm) : null,
+    leads,
+    cpl,
+    results_type: result.results_type,
+    semaforo: semaforoCpl(cpl),
+    spend_lifetime: life.spend,
+    leads_lifetime: life.leads,
+    cpl_lifetime: life.cpl,
+  };
 }
 
 function groupByNombre(
-  campaigns: CampaignMonthStats[],
+  adsets: AdsetStats[],
   tipo: MappingTipo,
 ): GroupSummaryRow[] {
   const map = new Map<string, GroupSummaryRow>();
-  for (const c of campaigns) {
-    if (c.tipo !== tipo || !c.nombre_normalizado) continue;
-    const g = map.get(c.nombre_normalizado) ?? {
-      nombre: c.nombre_normalizado,
+  for (const a of adsets) {
+    if (a.tipo !== tipo || !a.nombre_normalizado) continue;
+    const g = map.get(a.nombre_normalizado) ?? {
+      nombre: a.nombre_normalizado,
       tipo,
       inversion: 0,
+      inversionLifetime: 0,
       impressions: 0,
       clicks: 0,
       leads: 0,
       cpl: null,
-      campaigns: 0,
+      adsets: 0,
+      adsetsActivos: 0,
     };
-    g.inversion += c.spend;
-    g.impressions += c.impressions;
-    g.clicks += c.clicks;
-    g.leads += c.leads;
-    g.campaigns += 1;
-    map.set(c.nombre_normalizado, g);
+    g.inversion += a.spend;
+    g.inversionLifetime += a.spend_lifetime;
+    g.impressions += a.impressions;
+    g.clicks += a.clicks;
+    g.leads += a.leads;
+    g.adsets += 1;
+    if (a.effective_status === "ACTIVE") g.adsetsActivos += 1;
+    map.set(a.nombre_normalizado, g);
   }
   const rows = [...map.values()].map((g) => ({
     ...g,
@@ -215,14 +285,16 @@ function groupByNombre(
   return rows;
 }
 
-function kpisOf(campaigns: CampaignMonthStats[]): KpiBlock {
-  const inversion = campaigns.reduce((s, c) => s + c.spend, 0);
-  const leads = campaigns.reduce((s, c) => s + c.leads, 0);
+function kpisOf(adsets: AdsetStats[]): KpiBlock {
+  const inversion = adsets.reduce((s, a) => s + a.spend, 0);
+  const leads = adsets.reduce((s, a) => s + a.leads, 0);
+  const activos = adsets.filter((a) => a.effective_status === "ACTIVE");
   return {
     inversion,
     leads,
     cpl: leads > 0 ? inversion / leads : null,
-    campanasActivas: campaigns.filter((c) => c.effective_status === "ACTIVE").length,
+    adsetsActivos: activos.length,
+    inversionLifetimeActivos: activos.reduce((s, a) => s + a.spend_lifetime, 0),
   };
 }
 
@@ -242,50 +314,72 @@ export async function fetchFiveGatosMonthUncached(
     apiVersion: process.env.META_API_VERSION?.trim() || "v22.0",
   });
 
-  const [rules, statusMap] = await Promise.all([
-    loadMapping(),
-    fetchEntityMeta(client, accountId, "campaign"),
-  ]);
+  const { since, until } = monthRange(month);
+  const prev = monthRange(previousMonth(month));
 
-  const prevMonth = previousMonth(month);
-  const [campaigns, prevCampaigns] = await Promise.all([
-    buildMonthStats(client, accountId, month, statusMap, rules),
-    buildMonthStats(client, accountId, prevMonth, statusMap, rules).catch(
+  // 4 llamadas a Meta (todas SOLO lectura, con retry por rate limit):
+  const [rules, adsetsMeta, monthMap, prevMap, lifetimeMap] = await Promise.all([
+    loadMapping(),
+    fetchAdsetsMeta(client, accountId),
+    fetchAdsetInsightsRange(client, accountId, since, until),
+    fetchAdsetInsightsRange(client, accountId, prev.since, prev.until).catch(
       () => null,
     ),
+    fetchAdsetInsightsLifetime(client, accountId),
   ]);
 
-  const sinClasificar = campaigns.filter((c) => c.tipo === null && c.spend > 0);
+  // Universo del mes: adsets con actividad en el mes ∪ adsets activos hoy
+  // (un adset recién lanzado sin gasto también debe aparecer en las cards).
+  const ids = new Set<string>(monthMap.keys());
+  for (const a of activeAdsets(adsetsMeta)) ids.add(a.id);
+
+  const adsets = [...ids].map((id) =>
+    buildAdsetStats(id, monthMap.get(id), lifetimeMap.get(id), adsetsMeta.get(id), rules),
+  );
+
+  // KPIs del mes anterior (para los deltas).
+  let kpisPrev: KpiBlock | null = null;
+  if (prevMap) {
+    const prevStats = [...prevMap.keys()].map((id) =>
+      buildAdsetStats(id, prevMap.get(id), lifetimeMap.get(id), adsetsMeta.get(id), rules),
+    );
+    kpisPrev = kpisOf(prevStats);
+  }
+
+  const sinClasificar = adsets.filter(
+    (a) => a.tipo === null && (a.spend > 0 || a.effective_status === "ACTIVE"),
+  );
 
   // Registrar sin-clasificar en el Sheet (fire-and-forget, con throttle).
   void Promise.allSettled(
-    sinClasificar.map((c) =>
+    sinClasificar.map((a) =>
       recordUnclassified({
-        campaign_id: c.campaign_id,
-        campaign_name: c.campaign_name,
+        adset_id: a.adset_id,
+        adset_name: a.adset_name,
+        campaign_id: a.campaign_id,
+        campaign_name: a.campaign_name,
         account_id: accountId,
-        status: c.effective_status || c.status,
+        status: a.effective_status || a.status,
       }),
     ),
   );
 
-  const activas = campaigns
-    .filter((c) => c.effective_status === "ACTIVE")
-    .sort((a, b) => b.spend - a.spend);
+  const activos = adsets
+    .filter((a) => a.effective_status === "ACTIVE")
+    .sort((a, b) => b.spend_lifetime - a.spend_lifetime);
 
-  const { since, until } = monthRange(month);
   return {
     month,
     dateStart: since,
     dateStop: until,
     updatedAt: new Date().toISOString(),
-    kpis: kpisOf(campaigns),
-    kpisPrev: prevCampaigns ? kpisOf(prevCampaigns) : null,
-    cursos: groupByNombre(campaigns, "Curso"),
-    programas: groupByNombre(campaigns, "Programa"),
-    activas,
+    kpis: kpisOf(adsets),
+    kpisPrev,
+    cursos: groupByNombre(adsets, "Curso"),
+    programas: groupByNombre(adsets, "Programa"),
+    activos,
     sinClasificar,
-    campaigns,
+    adsets,
   };
 }
 
@@ -301,7 +395,7 @@ export async function getFiveGatosMonth(month: string): Promise<FiveGatosResult>
   try {
     const cached = unstable_cache(
       () => fetchFiveGatosMonthUncached(safeMonth),
-      ["5gatos-month", safeMonth],
+      ["5gatos-month-adsets", safeMonth],
       { revalidate: REVALIDATE_SECONDS, tags: ["5gatos-data"] },
     );
     const data = await cached();

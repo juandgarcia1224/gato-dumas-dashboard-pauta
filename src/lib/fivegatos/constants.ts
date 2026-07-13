@@ -67,3 +67,27 @@ export function fmtPct(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
   return `${v.toLocaleString("es-CO", { maximumFractionDigits: 2 })}%`;
 }
+
+export const FECHA_FORMAT = new Intl.DateTimeFormat("es-CO", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "America/Bogota",
+});
+
+/** Formatea una fecha ISO de Meta (ej. 2026-06-23T14:54:29-0500). */
+export function fmtFecha(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return FECHA_FORMAT.format(d);
+}
+
+/** Días corridos desde `startIso` hasta ahora (mínimo 0), o null si no hay fecha. */
+export function diasCorridos(startIso: string | null | undefined): number | null {
+  if (!startIso) return null;
+  const start = new Date(startIso).getTime();
+  if (Number.isNaN(start)) return null;
+  const diff = Date.now() - start;
+  return Math.max(0, Math.floor(diff / 86_400_000));
+}
