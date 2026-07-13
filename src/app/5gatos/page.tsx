@@ -7,7 +7,8 @@
 import Image from "next/image";
 import ActiveCampaignCard from "@/components/fivegatos/ActiveCampaignCard";
 import KpiCards from "@/components/fivegatos/KpiCards";
-import MonthSelect, { labelMes } from "@/components/fivegatos/MonthSelect";
+import MonthSelect from "@/components/fivegatos/MonthSelect";
+import { labelMes } from "@/components/fivegatos/labelMes";
 import SummaryTable from "@/components/fivegatos/SummaryTable";
 import { BENCHMARK_CPL, fmtCop } from "@/lib/fivegatos/constants";
 import {
