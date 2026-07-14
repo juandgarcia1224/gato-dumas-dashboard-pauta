@@ -17,12 +17,33 @@ import { unstable_cache } from "next/cache";
 import { MetaClient } from "../meta/client";
 import {
   activeAdsets,
+  ADSET_FIELDS,
   fetchAdsetInsightsLifetime,
   fetchAdsetInsightsRange,
   fetchAdsetsMeta,
+  withRateLimitRetry,
   type AdsetInsight,
   type AdsetMeta,
 } from "../meta/adsets";
+import {
+  creativeBody,
+  creativeCta,
+  creativeImage,
+  creativeTitle,
+  fetchAdInsightsRange,
+  fetchAdsOfAdset,
+  type AdInsight,
+  type AdMeta,
+} from "../meta/ads";
+import {
+  dedupeCursosVigentes,
+  mejorMatchCurso,
+} from "../dashboard/programacion-cross";
+import {
+  readProgramacion,
+  type Curso,
+  type EstadoCurso,
+} from "../sheets/programacion-gato-bga";
 import { interpretResult } from "../meta/transform";
 import {
   loadMapping,
@@ -390,6 +411,22 @@ const REVALIDATE_SECONDS = 10 * 60;
  * devuelve { ok:false } con mensaje interno (la página muestra un
  * mensaje amable, jamás el stack trace).
  */
+function buildMetaClient(): { client: MetaClient; accountId: string } {
+  const token = getFiveGatosToken();
+  if (!token) {
+    throw new Error(
+      "META_ACCESS_TOKEN_5GATOS / META_ACCESS_TOKEN no configurado.",
+    );
+  }
+  return {
+    client: new MetaClient({
+      token,
+      apiVersion: process.env.META_API_VERSION?.trim() || "v22.0",
+    }),
+    accountId: getFiveGatosAccountId(),
+  };
+}
+
 export async function getFiveGatosMonth(month: string): Promise<FiveGatosResult> {
   const safeMonth = isValidMonth(month) ? month : currentMonthBogota();
   try {
@@ -413,6 +450,378 @@ export async function getFiveGatosMonth(month: string): Promise<FiveGatosResult>
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[5gatos] Error trayendo datos de ${safeMonth}:`, msg);
+    return { ok: false, error: msg };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NIVEL CAMPAÑA — agrupación de adsets por campaña padre (drill-down nivel 1)
+// ---------------------------------------------------------------------------
+
+export interface CampaignStats {
+  campaign_id: string;
+  campaign_name: string;
+  /** ACTIVE si al menos un adset de la campaña está activo hoy. */
+  effective_status: "ACTIVE" | "PAUSED";
+  adsetsTotal: number;
+  adsetsActivos: number;
+  // Métricas del mes seleccionado (suma de sus adsets)
+  spend: number;
+  spend_lifetime: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  cpl: number | null;
+  semaforo: Semaforo;
+}
+
+/**
+ * Agrupa AdsetStats por campaña padre y suma métricas del mes.
+ * Pura: no llama red. Ordena por inversión del mes desc.
+ */
+export function agruparPorCampana(adsets: AdsetStats[]): CampaignStats[] {
+  const map = new Map<string, CampaignStats>();
+  for (const a of adsets) {
+    const id = a.campaign_id || "sin-campana";
+    const g = map.get(id) ?? {
+      campaign_id: id,
+      campaign_name: a.campaign_name || "(Sin nombre de campaña)",
+      effective_status: "PAUSED" as const,
+      adsetsTotal: 0,
+      adsetsActivos: 0,
+      spend: 0,
+      spend_lifetime: 0,
+      impressions: 0,
+      clicks: 0,
+      leads: 0,
+      cpl: null,
+      semaforo: "sin_datos" as Semaforo,
+    };
+    g.adsetsTotal += 1;
+    if (a.effective_status === "ACTIVE") g.adsetsActivos += 1;
+    g.spend += a.spend;
+    g.spend_lifetime += a.spend_lifetime;
+    g.impressions += a.impressions;
+    g.clicks += a.clicks;
+    g.leads += a.leads;
+    if (a.campaign_name && g.campaign_name === "(Sin nombre de campaña)") {
+      g.campaign_name = a.campaign_name;
+    }
+    map.set(id, g);
+  }
+  const rows = [...map.values()].map((g) => {
+    const cpl = g.leads > 0 ? g.spend / g.leads : null;
+    return {
+      ...g,
+      effective_status: (g.adsetsActivos > 0 ? "ACTIVE" : "PAUSED") as
+        | "ACTIVE"
+        | "PAUSED",
+      cpl,
+      semaforo: semaforoCpl(cpl),
+    };
+  });
+  rows.sort((a, b) => b.spend - a.spend);
+  return rows;
+}
+
+export interface CampanasMonthData {
+  month: string;
+  dateStart: string;
+  dateStop: string;
+  updatedAt: string;
+  kpis: KpiBlock;
+  kpisPrev: KpiBlock | null;
+  campanas: CampaignStats[];
+  sinClasificar: AdsetStats[];
+}
+
+export type CampanasResult =
+  | { ok: true; data: CampanasMonthData }
+  | { ok: false; error: string };
+
+/**
+ * Listado de CAMPAÑAS del mes con métricas agregadas de sus adsets.
+ * Reusa el viewmodel cacheado de getFiveGatosMonth (no agrega llamadas a Meta).
+ */
+export async function getCampanas(month: string): Promise<CampanasResult> {
+  const result = await getFiveGatosMonth(month);
+  if (!result.ok) return result;
+  const d = result.data;
+  return {
+    ok: true,
+    data: {
+      month: d.month,
+      dateStart: d.dateStart,
+      dateStop: d.dateStop,
+      updatedAt: d.updatedAt,
+      kpis: d.kpis,
+      kpisPrev: d.kpisPrev,
+      campanas: agruparPorCampana(d.adsets),
+      sinClasificar: d.sinClasificar,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Cruce con la programación del cliente (curso ↔ adset) — info serializable
+// ---------------------------------------------------------------------------
+
+/** Info del curso del Excel del cliente, lista para UI (fechas en ISO). */
+export interface CursoInfo {
+  nombre: string;
+  /** Texto crudo de la columna FECHA del Excel (respaldo). */
+  fecha_texto: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  estado: EstadoCurso;
+  inscritos: number;
+}
+
+function toCursoInfo(c: Curso): CursoInfo {
+  return {
+    nombre: c.nombre_canonico,
+    fecha_texto: c.fecha_texto,
+    fecha_inicio: c.fecha_inicio ? c.fecha_inicio.toISOString() : null,
+    fecha_fin: c.fecha_fin ? c.fecha_fin.toISOString() : null,
+    estado: c.estado,
+    inscritos: c.inscritos,
+  };
+}
+
+/**
+ * Cursos vigentes del Excel del cliente. Nunca lanza: si el Sheet no está
+ * accesible devuelve [] (la UI simplemente no muestra chips de curso).
+ */
+async function cursosVigentesSafe(): Promise<Curso[]> {
+  try {
+    const programacion = await readProgramacion();
+    return dedupeCursosVigentes(programacion);
+  } catch (err) {
+    console.error(
+      "[5gatos] Programación no disponible para chips de curso:",
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
+}
+
+/** Mejor curso del Excel para un adset (fuzzy match), o null. */
+export function cursoParaAdset(
+  adsetName: string,
+  cursosVigentes: Curso[],
+): CursoInfo | null {
+  const match = mejorMatchCurso(adsetName, cursosVigentes);
+  return match ? toCursoInfo(match.curso) : null;
+}
+
+// ---------------------------------------------------------------------------
+// NIVEL 2 — detalle de una campaña (sus adsets + curso mapeado)
+// ---------------------------------------------------------------------------
+
+export interface CampanaDetalle {
+  month: string;
+  dateStart: string;
+  dateStop: string;
+  updatedAt: string;
+  campana: CampaignStats;
+  /** Adsets de la campaña ordenados por inversión del mes desc. */
+  adsets: AdsetStats[];
+  /** Curso del Excel por adset_id (null si no matchea). */
+  cursos: Record<string, CursoInfo | null>;
+}
+
+export type CampanaDetalleResult =
+  | { ok: true; data: CampanaDetalle }
+  | { ok: false; error: string; notFound?: boolean };
+
+export async function getCampanaDetalle(
+  campaignId: string,
+  month: string,
+): Promise<CampanaDetalleResult> {
+  const result = await getFiveGatosMonth(month);
+  if (!result.ok) return result;
+
+  const adsets = result.data.adsets
+    .filter((a) => a.campaign_id === campaignId)
+    .sort((a, b) => b.spend - a.spend);
+  if (adsets.length === 0) {
+    return {
+      ok: false,
+      error: `Campaña ${campaignId} sin adsets en ${month}.`,
+      notFound: true,
+    };
+  }
+
+  const campana = agruparPorCampana(adsets)[0];
+  const vigentes = await cursosVigentesSafe();
+  const cursos: Record<string, CursoInfo | null> = {};
+  for (const a of adsets) {
+    cursos[a.adset_id] = cursoParaAdset(a.adset_name, vigentes);
+  }
+
+  return {
+    ok: true,
+    data: {
+      month: result.data.month,
+      dateStart: result.data.dateStart,
+      dateStop: result.data.dateStop,
+      updatedAt: result.data.updatedAt,
+      campana,
+      adsets,
+      cursos,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// NIVEL 3 — detalle de un adset (sus ads con creative + insights del mes)
+// ---------------------------------------------------------------------------
+
+export interface AdStats {
+  ad_id: string;
+  ad_name: string;
+  status: string;
+  effective_status: string;
+  creative_title: string | null;
+  creative_body: string | null;
+  creative_image: string | null;
+  /** Tipo de CTA de Meta (ej. WHATSAPP_MESSAGE) o null. */
+  cta: string | null;
+  // Métricas del mes seleccionado
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number | null;
+  cpm: number | null;
+  leads: number;
+  cpl: number | null;
+  semaforo: Semaforo;
+}
+
+function buildAdStats(meta: AdMeta, row: AdInsight | undefined): AdStats {
+  const spend = toNum(row?.spend);
+  const result = interpretResult(row?.actions, row?.cost_per_action_type, spend);
+  const leads = result.results ?? 0;
+  const cpl = leads > 0 ? spend / leads : null;
+  return {
+    ad_id: meta.id,
+    ad_name: meta.name,
+    status: meta.status ?? "",
+    effective_status: meta.effective_status ?? "",
+    creative_title: creativeTitle(meta.creative),
+    creative_body: creativeBody(meta.creative),
+    creative_image: creativeImage(meta.creative),
+    cta: creativeCta(meta.creative),
+    spend,
+    impressions: toNum(row?.impressions),
+    clicks: toNum(row?.clicks),
+    ctr: toNum(row?.ctr),
+    cpc: row?.cpc ? toNum(row.cpc) : null,
+    cpm: row?.cpm ? toNum(row.cpm) : null,
+    leads,
+    cpl,
+    semaforo: semaforoCpl(cpl),
+  };
+}
+
+/** Trae ads + insights del rango y los mergea por ad_id (2 llamadas a Meta). */
+async function fetchAdsDeAdsetUncached(
+  adsetId: string,
+  month: string,
+): Promise<AdStats[]> {
+  const { client } = buildMetaClient();
+  const { since, until } = monthRange(month);
+  const [ads, insights] = await Promise.all([
+    fetchAdsOfAdset(client, adsetId),
+    fetchAdInsightsRange(client, adsetId, since, until),
+  ]);
+  const stats = ads.map((meta) => buildAdStats(meta, insights.get(meta.id)));
+  stats.sort((a, b) => b.spend - a.spend);
+  return stats;
+}
+
+async function getAdsDeAdset(adsetId: string, month: string): Promise<AdStats[]> {
+  try {
+    const cached = unstable_cache(
+      () => fetchAdsDeAdsetUncached(adsetId, month),
+      ["5gatos-ads", adsetId, month],
+      { revalidate: REVALIDATE_SECONDS, tags: ["5gatos-data"] },
+    );
+    return await cached();
+  } catch (err) {
+    // Fuera del runtime de Next (scripts/tests) no hay incrementalCache.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes("incrementalCache")) throw err;
+    return fetchAdsDeAdsetUncached(adsetId, month);
+  }
+}
+
+export interface AdsetDetalle {
+  month: string;
+  dateStart: string;
+  dateStop: string;
+  updatedAt: string;
+  adset: AdsetStats;
+  curso: CursoInfo | null;
+  /** Ads del adset ordenados por inversión del mes desc. */
+  ads: AdStats[];
+}
+
+export type AdsetDetalleResult =
+  | { ok: true; data: AdsetDetalle }
+  | { ok: false; error: string; notFound?: boolean };
+
+export async function getAdsetDetalle(
+  adsetId: string,
+  month: string,
+): Promise<AdsetDetalleResult> {
+  const result = await getFiveGatosMonth(month);
+  if (!result.ok) return result;
+
+  // Metadata + métricas del mes del adset: normalmente ya está en el
+  // viewmodel cacheado; si no (adset viejo sin actividad este mes), se trae
+  // su metadata directo de Meta y queda con métricas del mes en cero.
+  let adset = result.data.adsets.find((a) => a.adset_id === adsetId) ?? null;
+  if (!adset) {
+    try {
+      const { client } = buildMetaClient();
+      const [meta, rules] = await Promise.all([
+        withRateLimitRetry(
+          () =>
+            client.getOne<AdsetMeta>(adsetId, { fields: ADSET_FIELDS }),
+          "adset-meta",
+        ),
+        loadMapping(),
+      ]);
+      adset = buildAdsetStats(adsetId, undefined, undefined, meta, rules);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[5gatos] Adset ${adsetId} no encontrado:`, msg);
+      return { ok: false, error: msg, notFound: true };
+    }
+  }
+
+  try {
+    const [ads, vigentes] = await Promise.all([
+      getAdsDeAdset(adsetId, month),
+      cursosVigentesSafe(),
+    ]);
+    return {
+      ok: true,
+      data: {
+        month: result.data.month,
+        dateStart: result.data.dateStart,
+        dateStop: result.data.dateStop,
+        updatedAt: result.data.updatedAt,
+        adset,
+        curso: cursoParaAdset(adset.adset_name, vigentes),
+        ads,
+      },
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[5gatos] Error trayendo ads del adset ${adsetId}:`, msg);
     return { ok: false, error: msg };
   }
 }

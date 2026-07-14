@@ -15,6 +15,14 @@ export const BENCHMARK_CPL = Number(
 
 export const BENCHMARK_CPL_WARN_FACTOR = 1.5;
 
+/**
+ * Inscritos mínimos esperados para un curso ya iniciado.
+ * Mismo valor que INSCRITOS_MINIMOS_ESPERADOS de programacion-cross, pero
+ * vive aquí porque este módulo es client-safe (programacion-cross arrastra
+ * googleapis y no puede importarse desde componentes "use client").
+ */
+export const INSCRITOS_ESPERADOS_CURSO = 8;
+
 export type Semaforo = "verde" | "amarillo" | "rojo" | "sin_datos";
 
 export function semaforoCpl(cpl: number | null): Semaforo {
@@ -81,6 +89,47 @@ export function fmtFecha(iso: string | null | undefined): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return FECHA_FORMAT.format(d);
+}
+
+const MES_CORTO = [
+  "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sep", "oct", "nov", "dic",
+];
+
+function diaMes(iso: string): { d: number; m: number } | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  // Componente UTC: las fechas del Excel viajan como ISO de medianoche.
+  return { d: date.getUTCDate(), m: date.getUTCMonth() };
+}
+
+/**
+ * Rango corto de fechas de un curso para chips/cards:
+ *   mismo mes    → "8 – 29 jul"
+ *   meses cruz.  → "26 jul – 16 ago"
+ *   solo inicio  → "Desde 8 jul"
+ *   solo fin     → "Hasta 29 jul"
+ */
+export function formatFechaCurso(
+  dateStart: string | null | undefined,
+  dateEnd: string | null | undefined,
+): string {
+  const i = dateStart ? diaMes(dateStart) : null;
+  const f = dateEnd ? diaMes(dateEnd) : null;
+  if (i && f) {
+    if (i.m === f.m && i.d === f.d) return `${i.d} ${MES_CORTO[i.m]}`;
+    if (i.m === f.m) return `${i.d} – ${f.d} ${MES_CORTO[i.m]}`;
+    return `${i.d} ${MES_CORTO[i.m]} – ${f.d} ${MES_CORTO[f.m]}`;
+  }
+  if (i) return `Desde ${i.d} ${MES_CORTO[i.m]}`;
+  if (f) return `Hasta ${f.d} ${MES_CORTO[f.m]}`;
+  return "";
+}
+
+/** "POR_ABRIR" → "Por abrir" (para chips de estado de curso). */
+export function estadoCursoLabel(estado: string): string {
+  const plano = estado.replace(/_/g, " ").toLowerCase();
+  return plano.charAt(0).toUpperCase() + plano.slice(1);
 }
 
 /** Días corridos desde `startIso` hasta ahora (mínimo 0), o null si no hay fecha. */

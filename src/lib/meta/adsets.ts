@@ -54,7 +54,7 @@ export interface AdsetInsight {
   date_stop?: string;
 }
 
-const ADSET_FIELDS = [
+export const ADSET_FIELDS = [
   "id",
   "name",
   "campaign_id",
