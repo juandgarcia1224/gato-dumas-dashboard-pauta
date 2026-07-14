@@ -12,6 +12,7 @@
 
 import Image from "next/image";
 import CampaignsView from "@/components/fivegatos/CampaignsView";
+import CoursesView from "@/components/fivegatos/CoursesView";
 import KpiCards from "@/components/fivegatos/KpiCards";
 import MonthSelect from "@/components/fivegatos/MonthSelect";
 import { labelMes } from "@/components/fivegatos/labelMes";
@@ -119,6 +120,9 @@ export default async function FiveGatosPage({
               pausadas={result.data.pausadas}
               month={month}
             />
+
+            {/* ── Desglose por Curso / Programa ─────────────── */}
+            <CoursesView activas={result.data.activas} />
 
             {/* ── Sin clasificar (línea discreta) ───────────── */}
             {result.data.sinClasificar.length > 0 && (

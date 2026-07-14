@@ -2,7 +2,7 @@ import type { KpiBlock } from "@/lib/fivegatos/data";
 import { fmtCop, fmtInt } from "@/lib/fivegatos/constants";
 import Kpi from "./Kpi";
 
-/** Totales de presupuesto del mes (campañas activas) para el 4º KPI. */
+/** Totales de presupuesto del mes (campañas activas) para "Inversión de pauta". */
 export interface PresupuestoGlobal {
   planeado: number | null;
   consumido: number;
@@ -43,8 +43,8 @@ function Delta({
 }
 
 /**
- * Resumen ejecutivo del mes: Inversión · Leads · CPL · Presupuesto
- * restante (planeado vs consumido de las campañas activas).
+ * Resumen ejecutivo del mes con lo que le importa al cliente:
+ * Inversión de pauta (planeado) · Consumido hasta hoy · Leads · CPL.
  */
 export default function KpiCards({
   kpis,
@@ -63,45 +63,55 @@ export default function KpiCards({
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Kpi
-        label="Inversión del mes"
-        value={fmtCop(kpis.inversion)}
-        foot={<Delta current={kpis.inversion} prev={kpisPrev?.inversion} />}
+        label="Inversión de pauta"
+        value={
+          presupuesto.planeado !== null ? fmtCop(presupuesto.planeado) : "—"
+        }
+        foot={
+          presupuesto.planeado !== null ? (
+            <span className="text-gray-500">
+              Presupuesto planeado del mes
+            </span>
+          ) : (
+            <span className="text-gray-400">
+              Sin presupuesto configurado en Meta
+            </span>
+          )
+        }
       />
       <Kpi
-        label="Leads del mes"
+        label="Consumido hasta hoy"
+        value={fmtCop(presupuesto.consumido)}
+        foot={
+          pctConsumido !== null ? (
+            <span className="tabular-nums text-gray-500">
+              <span className="font-semibold text-gray-800">
+                {pctConsumido.toLocaleString("es-CO", {
+                  maximumFractionDigits: 0,
+                })}
+                %
+              </span>
+              <span className="ml-1">
+                del presupuesto ·{" "}
+                {presupuesto.restante !== null
+                  ? `restan ${fmtCop(presupuesto.restante)}`
+                  : ""}
+              </span>
+            </span>
+          ) : (
+            <Delta current={kpis.inversion} prev={kpisPrev?.inversion} />
+          )
+        }
+      />
+      <Kpi
+        label="Leads"
         value={fmtInt(kpis.leads)}
         foot={<Delta current={kpis.leads} prev={kpisPrev?.leads} />}
       />
       <Kpi
-        label="CPL promedio"
+        label="CPL"
         value={fmtCop(kpis.cpl)}
         foot={<Delta current={kpis.cpl} prev={kpisPrev?.cpl} invertGood />}
-      />
-      <Kpi
-        label="Presupuesto restante"
-        value={
-          presupuesto.restante !== null ? fmtCop(presupuesto.restante) : "—"
-        }
-        foot={
-          presupuesto.planeado !== null ? (
-            <span className="tabular-nums">
-              Consumido {fmtCop(presupuesto.consumido)} de{" "}
-              {fmtCop(presupuesto.planeado)} planeados
-              {pctConsumido !== null && (
-                <span className="font-medium text-gray-700">
-                  {" "}
-                  (
-                  {pctConsumido.toLocaleString("es-CO", {
-                    maximumFractionDigits: 0,
-                  })}
-                  %)
-                </span>
-              )}
-            </span>
-          ) : (
-            <span>Sin presupuesto configurado en Meta</span>
-          )
-        }
       />
     </div>
   );
