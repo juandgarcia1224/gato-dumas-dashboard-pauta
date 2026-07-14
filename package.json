@@ -12,14 +12,20 @@
     "sheets:setup": "tsx scripts/setup-sheets.ts",
     "meta:update": "tsx scripts/update-meta.ts",
     "meta:update:manual": "tsx scripts/update-meta-manual.ts",
-    "pacing:recompute": "tsx scripts/recompute-pacing.ts"
+    "pacing:recompute": "tsx scripts/recompute-pacing.ts",
+    "mapping:setup": "tsx scripts/setup-mapping-sheet.ts",
+    "test:mapping": "tsx --test src/lib/mapping/__tests__/courses.test.ts",
+    "test:presupuesto": "tsx --test src/lib/fivegatos/__tests__/presupuesto.test.ts",
+    "test:pauta": "tsx --test src/lib/fivegatos/__tests__/pauta-info.test.ts"
   },
   "dependencies": {
     "googleapis": "^144.0.0",
     "lucide-react": "^0.456.0",
     "next": "^15.1.6",
+    "next-auth": "^5.0.0-beta.31",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
