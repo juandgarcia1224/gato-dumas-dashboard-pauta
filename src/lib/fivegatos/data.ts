@@ -39,6 +39,18 @@ import {
   dedupeCursosVigentes,
   mejorMatchCurso,
 } from "../dashboard/programacion-cross";
+import { fetchCampaignsMeta, type CampaignMeta } from "../meta/campaigns";
+import {
+  budgetOrNull,
+  buildPresupuesto,
+  diasInclusivos,
+  fechaCreible,
+  planeadoDe,
+  rangoMes,
+  rangoVida,
+  sumarPlaneados,
+  type PresupuestoModos,
+} from "./presupuesto";
 import {
   readProgramacion,
   type Curso,
@@ -563,6 +575,337 @@ export async function getCampanas(month: string): Promise<CampanasResult> {
 }
 
 // ---------------------------------------------------------------------------
+// CAMPAÑAS ACTIVAS (vista acordeón v2) — cada campaña con presupuesto
+// planeado vs consumido (modo mes / vida) y sus adsets con curso del Excel.
+// Todo se resuelve en UNA pasada: viewmodel cacheado + 1 llamada a
+// /campaigns (cacheada) + 1 lectura del Sheet de programación. Sin N+1.
+// ---------------------------------------------------------------------------
+
+/** Etiquetas ES de los objetivos de Meta (ODAX y legacy más comunes). */
+const OBJETIVO_LABEL: Record<string, string> = {
+  OUTCOME_LEADS: "Leads",
+  OUTCOME_SALES: "Ventas",
+  OUTCOME_ENGAGEMENT: "Interacción",
+  OUTCOME_TRAFFIC: "Tráfico",
+  OUTCOME_AWARENESS: "Reconocimiento",
+  OUTCOME_APP_PROMOTION: "Promoción de app",
+  LEAD_GENERATION: "Leads",
+  CONVERSIONS: "Conversiones",
+  MESSAGES: "Mensajes",
+  LINK_CLICKS: "Tráfico",
+};
+
+function objetivoLabel(objective: string | undefined): string | null {
+  if (!objective) return null;
+  const known = OBJETIVO_LABEL[objective];
+  if (known) return known;
+  const plano = objective
+    .replace(/^OUTCOME_/, "")
+    .replace(/_/g, " ")
+    .toLowerCase();
+  return plano.charAt(0).toUpperCase() + plano.slice(1);
+}
+
+async function fetchCampaignsMetaUncached(): Promise<CampaignMeta[]> {
+  const { client, accountId } = buildMetaClient();
+  const map = await fetchCampaignsMeta(client, accountId);
+  return [...map.values()];
+}
+
+/**
+ * Metadatos de campañas (objective + CBO + fechas), cacheados 10 min.
+ * Nunca lanza: si Meta falla, la vista degrada (sin objetivo ni CBO).
+ */
+async function getCampaignsMetaSafe(): Promise<Map<string, CampaignMeta>> {
+  try {
+    let rows: CampaignMeta[];
+    try {
+      const cached = unstable_cache(
+        fetchCampaignsMetaUncached,
+        ["5gatos-campaigns-meta"],
+        { revalidate: REVALIDATE_SECONDS, tags: ["5gatos-data"] },
+      );
+      rows = await cached();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("incrementalCache")) throw err;
+      rows = await fetchCampaignsMetaUncached();
+    }
+    return new Map(rows.map((r) => [r.id, r]));
+  } catch (err) {
+    console.error(
+      "[5gatos] Metadatos de campañas no disponibles:",
+      err instanceof Error ? err.message : err,
+    );
+    return new Map();
+  }
+}
+
+/** Adset del acordeón: stats + curso del Excel + presupuesto en ambos modos. */
+export interface AdsetConCurso extends AdsetStats {
+  curso: CursoInfo | null;
+  presupuesto: PresupuestoModos;
+}
+
+export interface CampanaActiva {
+  campaign_id: string;
+  campaign_name: string;
+  /** ACTIVE si al menos un adset está activo hoy. */
+  effective_status: "ACTIVE" | "PAUSED";
+  /** Objetivo de la campaña en español ("Leads", "Ventas"…), o null. */
+  objetivo: string | null;
+  adsetsTotal: number;
+  adsetsActivos: number;
+  // Métricas del mes seleccionado (suma de sus adsets)
+  spend: number;
+  spend_lifetime: number;
+  impressions: number;
+  clicks: number;
+  ctr: number | null;
+  cpc: number | null;
+  leads: number;
+  cpl: number | null;
+  semaforo: Semaforo;
+  presupuesto: PresupuestoModos;
+  /** Adsets ordenados por inversión del mes desc. */
+  adsets: AdsetConCurso[];
+}
+
+export interface CampanasActivasData {
+  month: string;
+  dateStart: string;
+  dateStop: string;
+  updatedAt: string;
+  kpis: KpiBlock;
+  kpisPrev: KpiBlock | null;
+  /** Campañas con ≥1 adset ACTIVE, por inversión del mes desc. */
+  activas: CampanaActiva[];
+  /** Resto (100% pausadas), solo se muestran opt-in. */
+  pausadas: CampanaActiva[];
+  /**
+   * Total planeado/consumido/restante del MES de las campañas activas
+   * (para el KPI global). null si ninguna reporta presupuesto.
+   */
+  presupuestoMes: {
+    planeado: number | null;
+    consumido: number;
+    restante: number | null;
+  };
+  sinClasificar: AdsetStats[];
+}
+
+export type CampanasActivasResult =
+  | { ok: true; data: CampanasActivasData }
+  | { ok: false; error: string };
+
+/** Presupuesto de UN adset en ambos modos (mes seleccionado y vida). */
+function presupuestoAdset(
+  a: AdsetStats,
+  monthSince: string,
+  monthUntil: string,
+  hoy: Date,
+): PresupuestoModos {
+  const rVida = rangoVida(a.start_time, a.end_time, hoy);
+  const planVida = planeadoDe({
+    lifetimeBudget: a.lifetime_budget,
+    dailyBudget: a.daily_budget,
+    diasPlan: rVida.diasPlan,
+  });
+  const rMes = rangoMes(a.start_time, a.end_time, monthSince, monthUntil);
+  const planMes = planeadoDe({
+    lifetimeBudget: a.lifetime_budget,
+    dailyBudget: a.daily_budget,
+    diasPlan: rMes.diasPlan,
+  });
+  return {
+    mes: buildPresupuesto(planMes.planeado, planMes.fuente, a.spend, rMes.diasTranscurridos),
+    vida: buildPresupuesto(planVida.planeado, planVida.fuente, a.spend_lifetime, rVida.diasTranscurridos),
+  };
+}
+
+/**
+ * Presupuesto de una campaña: si tiene CBO (budget a nivel campaña) manda
+ * el CBO; si no, suma los presupuestos de sus adsets.
+ */
+function presupuestoCampana(
+  meta: CampaignMeta | undefined,
+  adsets: AdsetConCurso[],
+  monthSince: string,
+  monthUntil: string,
+  hoy: Date,
+): PresupuestoModos {
+  const spendMes = adsets.reduce((s, a) => s + a.spend, 0);
+  const spendVida = adsets.reduce((s, a) => s + a.spend_lifetime, 0);
+
+  // Rango de la campaña: start_time creíble de Meta o el menor start de
+  // sus adsets (algunas campañas CBO reportan epoch 1969).
+  const startsAdsets = adsets
+    .map((a) => fechaCreible(a.start_time))
+    .filter((d): d is Date => d !== null);
+  const startCamp =
+    fechaCreible(meta?.start_time) ??
+    (startsAdsets.length > 0
+      ? new Date(Math.min(...startsAdsets.map((d) => d.getTime())))
+      : null);
+  const endCamp = fechaCreible(meta?.stop_time);
+
+  const rVida = rangoVida(
+    startCamp ? startCamp.toISOString() : null,
+    endCamp ? endCamp.toISOString() : null,
+    hoy,
+  );
+  const rMes = rangoMes(
+    startCamp ? startCamp.toISOString() : null,
+    endCamp ? endCamp.toISOString() : null,
+    monthSince,
+    monthUntil,
+  );
+  // Ritmo del mes: días del mes con la campaña al aire (fallback: días del rango).
+  const diasMes =
+    rMes.diasTranscurridos && rMes.diasTranscurridos > 0
+      ? rMes.diasTranscurridos
+      : diasInclusivos(
+          new Date(`${monthSince}T00:00:00Z`),
+          new Date(`${monthUntil}T00:00:00Z`),
+        );
+
+  const cboLifetime = budgetOrNull(toNumOrNull(meta?.lifetime_budget));
+  const cboDaily = budgetOrNull(toNumOrNull(meta?.daily_budget));
+
+  if (cboLifetime !== null || cboDaily !== null) {
+    const planVida = planeadoDe({
+      lifetimeBudget: cboLifetime,
+      dailyBudget: cboDaily,
+      diasPlan: rVida.diasPlan,
+    });
+    const planMes = planeadoDe({
+      lifetimeBudget: cboLifetime,
+      dailyBudget: cboDaily,
+      diasPlan: rMes.diasPlan,
+    });
+    return {
+      mes: buildPresupuesto(planMes.planeado, planMes.fuente, spendMes, diasMes),
+      vida: buildPresupuesto(planVida.planeado, planVida.fuente, spendVida, rVida.diasTranscurridos),
+    };
+  }
+
+  const planMes = sumarPlaneados(adsets.map((a) => a.presupuesto.mes));
+  const planVida = sumarPlaneados(adsets.map((a) => a.presupuesto.vida));
+  return {
+    mes: buildPresupuesto(planMes.planeado, planMes.fuente, spendMes, diasMes),
+    vida: buildPresupuesto(planVida.planeado, planVida.fuente, spendVida, rVida.diasTranscurridos),
+  };
+}
+
+/**
+ * Campañas del mes con presupuesto y adsets anidados, separadas en
+ * activas (≥1 adset ACTIVE) y pausadas. UNA sola pasada:
+ * viewmodel cacheado + metadatos de campañas + programación del cliente.
+ */
+export async function getCampanasActivas(
+  month: string,
+): Promise<CampanasActivasResult> {
+  const result = await getFiveGatosMonth(month);
+  if (!result.ok) return result;
+  const d = result.data;
+
+  const [campMeta, vigentes] = await Promise.all([
+    getCampaignsMetaSafe(),
+    cursosVigentesSafe(),
+  ]);
+  const hoy = new Date();
+
+  // Agrupar adsets por campaña padre.
+  const grupos = new Map<string, AdsetStats[]>();
+  for (const a of d.adsets) {
+    const id = a.campaign_id || "sin-campana";
+    const list = grupos.get(id) ?? [];
+    list.push(a);
+    grupos.set(id, list);
+  }
+
+  const campanas: CampanaActiva[] = [];
+  for (const [id, list] of grupos) {
+    const adsets: AdsetConCurso[] = list
+      .map((a) => ({
+        ...a,
+        curso: cursoParaAdset(a.adset_name, vigentes),
+        presupuesto: presupuestoAdset(a, d.dateStart, d.dateStop, hoy),
+      }))
+      .sort((a, b) => b.spend - a.spend);
+
+    const meta = campMeta.get(id);
+    const spend = adsets.reduce((s, a) => s + a.spend, 0);
+    const impressions = adsets.reduce((s, a) => s + a.impressions, 0);
+    const clicks = adsets.reduce((s, a) => s + a.clicks, 0);
+    const leads = adsets.reduce((s, a) => s + a.leads, 0);
+    const cpl = leads > 0 ? spend / leads : null;
+    const adsetsActivos = adsets.filter(
+      (a) => a.effective_status === "ACTIVE",
+    ).length;
+
+    campanas.push({
+      campaign_id: id,
+      campaign_name:
+        adsets.find((a) => a.campaign_name)?.campaign_name ??
+        meta?.name ??
+        "(Sin nombre de campaña)",
+      effective_status: adsetsActivos > 0 ? "ACTIVE" : "PAUSED",
+      objetivo: objetivoLabel(meta?.objective),
+      adsetsTotal: adsets.length,
+      adsetsActivos,
+      spend,
+      spend_lifetime: adsets.reduce((s, a) => s + a.spend_lifetime, 0),
+      impressions,
+      clicks,
+      ctr: impressions > 0 ? (clicks / impressions) * 100 : null,
+      cpc: clicks > 0 ? spend / clicks : null,
+      leads,
+      cpl,
+      semaforo: semaforoCpl(cpl),
+      presupuesto: presupuestoCampana(meta, adsets, d.dateStart, d.dateStop, hoy),
+      adsets,
+    });
+  }
+  campanas.sort((a, b) => b.spend - a.spend);
+
+  const activas = campanas.filter((c) => c.adsetsActivos > 0);
+  const pausadas = campanas.filter((c) => c.adsetsActivos === 0);
+
+  // Totales de presupuesto del MES de las campañas activas (KPI global).
+  let planeadoTotal = 0;
+  let consumidoTotal = 0;
+  let hayPlan = false;
+  for (const c of activas) {
+    consumidoTotal += c.presupuesto.mes.consumido;
+    if (c.presupuesto.mes.planeado !== null) {
+      hayPlan = true;
+      planeadoTotal += c.presupuesto.mes.planeado;
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      month: d.month,
+      dateStart: d.dateStart,
+      dateStop: d.dateStop,
+      updatedAt: d.updatedAt,
+      kpis: d.kpis,
+      kpisPrev: d.kpisPrev,
+      activas,
+      pausadas,
+      presupuestoMes: {
+        planeado: hayPlan ? planeadoTotal : null,
+        consumido: consumidoTotal,
+        restante: hayPlan ? planeadoTotal - consumidoTotal : null,
+      },
+      sinClasificar: d.sinClasificar,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Cruce con la programación del cliente (curso ↔ adset) — info serializable
 // ---------------------------------------------------------------------------
 
@@ -741,7 +1084,7 @@ async function fetchAdsDeAdsetUncached(
   return stats;
 }
 
-async function getAdsDeAdset(adsetId: string, month: string): Promise<AdStats[]> {
+export async function getAdsDeAdset(adsetId: string, month: string): Promise<AdStats[]> {
   try {
     const cached = unstable_cache(
       () => fetchAdsDeAdsetUncached(adsetId, month),
