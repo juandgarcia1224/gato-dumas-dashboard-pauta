@@ -65,6 +65,28 @@ export default async function FiveGatosPage({
               </h1>
               <p className="text-[13px] text-gray-500">
                 Bucaramanga · {labelMes(month)}
+                {result.ok && (
+                  <>
+                    {" · "}
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700"
+                      title="El dashboard sincroniza automáticamente cada 5 horas para no saturar la API de Meta."
+                    >
+                      <span
+                        aria-hidden
+                        className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                      />
+                      Actualizado{" "}
+                      {new Date(result.data.updatedAt).toLocaleString("es-CO", {
+                        timeZone: "America/Bogota",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                    </span>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -94,8 +116,9 @@ export default async function FiveGatosPage({
               Estamos actualizando los datos
             </h2>
             <p className="mt-2 max-w-md text-base text-gray-500">
-              La información de Meta se está sincronizando. Vuelve a intentarlo
-              en unos minutos. Si el problema persiste, escríbele a Juan
+              Meta está limitando temporalmente las consultas para proteger sus
+              servidores. Los datos se refrescan automáticamente cada 5 horas y
+              volverán en unos minutos. Si persiste, escríbele a Juan
               (juandgarcia1224@gmail.com).
             </p>
           </div>

@@ -444,7 +444,10 @@ export async function fetchFiveGatosMonthUncached(
   };
 }
 
-const REVALIDATE_SECONDS = 10 * 60;
+// 5 horas: reduce llamadas a Meta y evita hitear el rate limit de la app
+// (Acceso Limitado sin App Review). El cliente ve la hora exacta de la última
+// sincronización en el header del dashboard.
+const REVALIDATE_SECONDS = 5 * 60 * 60;
 
 /**
  * Datos del mes con caché de 10 min. Nunca lanza hacia la UI:
