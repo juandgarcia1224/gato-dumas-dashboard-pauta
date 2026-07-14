@@ -126,6 +126,26 @@ export function formatFechaCurso(
   return "";
 }
 
+/**
+ * Fecha corta de curso para chips: "29 jul" (agrega el año solo si no es
+ * el actual: "29 jul 2027"). Componente UTC: las fechas del Excel viajan
+ * como ISO de medianoche.
+ */
+export function fmtFechaCorta(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const dm = diaMes(iso);
+  if (!dm) return "";
+  const anio = new Date(iso).getUTCFullYear();
+  const anioActual = Number(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Bogota",
+      year: "numeric",
+    }).format(new Date()),
+  );
+  const base = `${dm.d} ${MES_CORTO[dm.m]}`;
+  return anio === anioActual ? base : `${base} ${anio}`;
+}
+
 /** "POR_ABRIR" → "Por abrir" (para chips de estado de curso). */
 export function estadoCursoLabel(estado: string): string {
   const plano = estado.replace(/_/g, " ").toLowerCase();

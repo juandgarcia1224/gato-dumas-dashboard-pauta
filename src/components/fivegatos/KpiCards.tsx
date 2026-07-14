@@ -2,6 +2,13 @@ import type { KpiBlock } from "@/lib/fivegatos/data";
 import { fmtCop, fmtInt } from "@/lib/fivegatos/constants";
 import Kpi from "./Kpi";
 
+/** Totales de presupuesto del mes (campañas activas) para el 4º KPI. */
+export interface PresupuestoGlobal {
+  planeado: number | null;
+  consumido: number;
+  restante: number | null;
+}
+
 function Delta({
   current,
   prev,
@@ -35,14 +42,24 @@ function Delta({
   );
 }
 
-/** Resumen ejecutivo del mes: 4 KPIs en cards sobrias. */
+/**
+ * Resumen ejecutivo del mes: Inversión · Leads · CPL · Presupuesto
+ * restante (planeado vs consumido de las campañas activas).
+ */
 export default function KpiCards({
   kpis,
   kpisPrev,
+  presupuesto,
 }: {
   kpis: KpiBlock;
   kpisPrev: KpiBlock | null;
+  presupuesto: PresupuestoGlobal;
 }) {
+  const pctConsumido =
+    presupuesto.planeado !== null && presupuesto.planeado > 0
+      ? (presupuesto.consumido / presupuesto.planeado) * 100
+      : null;
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Kpi
@@ -61,12 +78,29 @@ export default function KpiCards({
         foot={<Delta current={kpis.cpl} prev={kpisPrev?.cpl} invertGood />}
       />
       <Kpi
-        label="Adsets activos hoy"
-        value={fmtInt(kpis.adsetsActivos)}
+        label="Presupuesto restante"
+        value={
+          presupuesto.restante !== null ? fmtCop(presupuesto.restante) : "—"
+        }
         foot={
-          <span className="tabular-nums">
-            {fmtCop(kpis.inversionLifetimeActivos)} consumidos desde su inicio
-          </span>
+          presupuesto.planeado !== null ? (
+            <span className="tabular-nums">
+              Consumido {fmtCop(presupuesto.consumido)} de{" "}
+              {fmtCop(presupuesto.planeado)} planeados
+              {pctConsumido !== null && (
+                <span className="font-medium text-gray-700">
+                  {" "}
+                  (
+                  {pctConsumido.toLocaleString("es-CO", {
+                    maximumFractionDigits: 0,
+                  })}
+                  %)
+                </span>
+              )}
+            </span>
+          ) : (
+            <span>Sin presupuesto configurado en Meta</span>
+          )
         }
       />
     </div>
