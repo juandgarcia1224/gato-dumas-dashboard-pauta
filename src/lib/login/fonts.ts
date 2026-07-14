@@ -1,5 +1,5 @@
 /**
- * Tipografía oficial The Lab (Brand House 2026) para /5gatos y /login.
+ * Tipografía oficial The Lab (Brand House 2026) para /login y /login-denegado (The Lab).
  * IBM Plex Sans (lectura/números) + IBM Plex Mono (etiqueta técnica).
  * next/font descarga en build y sirve same-origin → compatible con el CSP
  * (no hay request a CDN en runtime). Druk no se puede servir: el display

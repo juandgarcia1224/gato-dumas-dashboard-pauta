@@ -5,7 +5,7 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
-import { labFontVars } from "@/lib/fivegatos/fonts";
+import { labFontVars } from "@/lib/login/fonts";
 
 export const metadata = {
   title: "Entrar — 5 Gatos · Bucaramanga",

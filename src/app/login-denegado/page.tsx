@@ -4,7 +4,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { labFontVars } from "@/lib/fivegatos/fonts";
+import { labFontVars } from "@/lib/login/fonts";
 
 export const metadata = {
   title: "Acceso pendiente — 5 Gatos · Bucaramanga",
