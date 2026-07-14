@@ -6,12 +6,24 @@ solo Juan puede hacer. Marca cada casilla en orden.
 
 ---
 
-## 1. Token permanente de Meta (BLOQUEADO — política Meta 2026)
+## 1. Token permanente de Meta ✅ RESUELTO 2026-07-14
 
-**Estado 2026-07-12:** App y System User CREADOS. Bloqueado en la generación
-del token porque Meta ahora exige aprobación de un segundo admin del portfolio
-para tokens permanentes de System User (política nueva 2026, no depende de
-los permisos solicitados).
+Gato Buc aprobó el segundo admin y el token permanente quedó generado, subido
+a Vercel (Production + Preview + Development) y sincronizado en `.env.local`.
+El dashboard es 100% autónomo — el token no expira mientras la app, el System
+User y la asignación de ad account sigan intactos.
+
+**Rotación futura (solo si es necesario):** repetir Paso 5 del
+`docs/BUSINESS_MANAGER_SETUP.md` para generar un nuevo token, luego:
+```bash
+cd /Users/mac/gato-dumas-dashboard
+vercel env rm META_ACCESS_TOKEN_5GATOS production -y
+printf '%s' 'EAA...token_nuevo' | vercel env add META_ACCESS_TOKEN_5GATOS production
+# igual para preview
+vercel --prod
+```
+
+### Registro histórico del bloqueo (referencia)
 
 **Ya está listo:**
 - App **"Dashboard 5 Gatos"** vinculada al portfolio Gato Dumas Bucaramanga
@@ -95,7 +107,7 @@ Settings → Environment Variables (Production + Preview):
 
 | Variable | Estado | Valor / dónde sale |
 | --- | --- | --- |
-| `META_ACCESS_TOKEN_5GATOS` | ⚠️ FALTA | Paso 1 (System User) |
+| `META_ACCESS_TOKEN_5GATOS` | ✅ cargada | Token permanente System User (resuelto 2026-07-14) |
 | `META_API_VERSION` | ✅ cargada | `v22.0` |
 | `META_AD_ACCOUNT_GATO_BUCARAMANGA` | ✅ cargada | `act_248616958293893` |
 | `META_AD_ACCOUNT_GATO_COLOMBIA` | ✅ cargada | `act_299121374587072` (vista interna `/`) |
