@@ -6,6 +6,7 @@ import type { ModoPresupuesto } from "@/lib/fivegatos/presupuesto";
 import { fmtCop, fmtInt, fmtPct } from "@/lib/fivegatos/constants";
 import AdCardCompact from "./AdCardCompact";
 import FinCursoChip from "./FinCursoChip";
+import PautaInfoChip from "./PautaInfoChip";
 import PresupuestoCard from "./PresupuestoCard";
 import StatusBadge from "./StatusBadge";
 
@@ -112,6 +113,11 @@ function AdsetRow({
               {adset.adset_name}
             </span>
             <FinCursoChip curso={adset.curso} />
+            <PautaInfoChip
+              variante="adset"
+              startTime={adset.start_time}
+              frequency={adset.frequency}
+            />
             {pausado && (
               <span className="inline-flex shrink-0 items-center rounded-[4px] bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500">
                 Pausado
@@ -238,6 +244,12 @@ export default function CampaignBlock({
             {c.adsetsTotal > c.adsetsActivos && (
               <span className="text-gray-400"> de {fmtInt(c.adsetsTotal)}</span>
             )}
+            <span className="text-gray-300"> · </span>
+            <PautaInfoChip
+              variante="campana"
+              startTime={c.start_time}
+              frequency={c.frequency}
+            />
           </p>
         </div>
         <StatusBadge status={c.effective_status} />

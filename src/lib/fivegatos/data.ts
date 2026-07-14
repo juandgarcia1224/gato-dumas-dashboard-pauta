@@ -87,6 +87,13 @@ export interface AdsetStats {
   // ── Métricas del MES seleccionado ──
   spend: number;
   impressions: number;
+  /** Personas únicas alcanzadas en el mes. */
+  reach: number;
+  /**
+   * Frecuencia del mes (impresiones ÷ alcance): promedio de veces que cada
+   * persona vio la pauta. null si el adset no tuvo entrega en el período.
+   */
+  frequency: number | null;
   clicks: number;
   ctr: number;
   cpc: number | null;
@@ -210,6 +217,21 @@ function toNumOrNull(v: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Frecuencia de una entidad: preferimos la `frequency` que reporta Meta;
+ * si no viene, la calculamos como impresiones ÷ alcance. null si no hubo
+ * entrega (sin alcance) en el período.
+ */
+export function frecuenciaDe(
+  metaFrequency: number | null,
+  impressions: number,
+  reach: number,
+): number | null {
+  if (metaFrequency !== null && metaFrequency > 0) return metaFrequency;
+  if (reach > 0 && impressions > 0) return impressions / reach;
+  return null;
+}
+
 interface LifetimeAgg {
   spend: number;
   leads: number;
@@ -268,6 +290,12 @@ function buildAdsetStats(
     lifetime_budget: toNumOrNull(meta?.lifetime_budget),
     spend,
     impressions: toNum(monthRow?.impressions),
+    reach: toNum(monthRow?.reach),
+    frequency: frecuenciaDe(
+      toNumOrNull(monthRow?.frequency),
+      toNum(monthRow?.impressions),
+      toNum(monthRow?.reach),
+    ),
     clicks: toNum(monthRow?.clicks),
     ctr: toNum(monthRow?.ctr),
     cpc: monthRow?.cpc ? toNum(monthRow.cpc) : null,
@@ -654,6 +682,18 @@ export interface CampanaActiva {
   effective_status: "ACTIVE" | "PAUSED";
   /** Objetivo de la campaña en español ("Leads", "Ventas"…), o null. */
   objetivo: string | null;
+  /**
+   * Inicio real de la pauta (ISO): start_time creíble de Meta o, si la
+   * campaña reporta epoch 1969, el menor start_time de sus adsets.
+   */
+  start_time: string | null;
+  /**
+   * Frecuencia del mes: Σ impresiones ÷ Σ alcance de sus adsets (Meta no se
+   * consulta con insights level=campaign en esta vista; el alcance sumado
+   * puede sobreestimar levemente los únicos si hay solape entre adsets).
+   * null si la campaña no tuvo entrega en el período.
+   */
+  frequency: number | null;
   adsetsTotal: number;
   adsetsActivos: number;
   // Métricas del mes seleccionado (suma de sus adsets)
@@ -837,12 +877,24 @@ export async function getCampanasActivas(
     const meta = campMeta.get(id);
     const spend = adsets.reduce((s, a) => s + a.spend, 0);
     const impressions = adsets.reduce((s, a) => s + a.impressions, 0);
+    const reach = adsets.reduce((s, a) => s + a.reach, 0);
     const clicks = adsets.reduce((s, a) => s + a.clicks, 0);
     const leads = adsets.reduce((s, a) => s + a.leads, 0);
     const cpl = leads > 0 ? spend / leads : null;
     const adsetsActivos = adsets.filter(
       (a) => a.effective_status === "ACTIVE",
     ).length;
+
+    // Inicio real de la pauta: start_time creíble de Meta o el menor start
+    // de sus adsets (algunas campañas CBO reportan epoch 1969).
+    const startsAdsets = adsets
+      .map((a) => fechaCreible(a.start_time))
+      .filter((d): d is Date => d !== null);
+    const startCamp =
+      fechaCreible(meta?.start_time) ??
+      (startsAdsets.length > 0
+        ? new Date(Math.min(...startsAdsets.map((d) => d.getTime())))
+        : null);
 
     campanas.push({
       campaign_id: id,
@@ -852,6 +904,8 @@ export async function getCampanasActivas(
         "(Sin nombre de campaña)",
       effective_status: adsetsActivos > 0 ? "ACTIVE" : "PAUSED",
       objetivo: objetivoLabel(meta?.objective),
+      start_time: startCamp ? startCamp.toISOString() : null,
+      frequency: frecuenciaDe(null, impressions, reach),
       adsetsTotal: adsets.length,
       adsetsActivos,
       spend,
@@ -1025,6 +1079,11 @@ export interface AdStats {
   ad_name: string;
   status: string;
   effective_status: string;
+  /**
+   * Fecha de lanzamiento del creative (created_time del ad; Meta no reporta
+   * start_time a nivel ad). ISO con offset o null.
+   */
+  created_time: string | null;
   creative_title: string | null;
   creative_body: string | null;
   creative_image: string | null;
@@ -1033,6 +1092,10 @@ export interface AdStats {
   // Métricas del mes seleccionado
   spend: number;
   impressions: number;
+  /** Personas únicas alcanzadas en el mes. */
+  reach: number;
+  /** Frecuencia del mes (impresiones ÷ alcance) o null sin entrega. */
+  frequency: number | null;
   clicks: number;
   ctr: number;
   cpc: number | null;
@@ -1052,12 +1115,19 @@ function buildAdStats(meta: AdMeta, row: AdInsight | undefined): AdStats {
     ad_name: meta.name,
     status: meta.status ?? "",
     effective_status: meta.effective_status ?? "",
+    created_time: meta.created_time ?? null,
     creative_title: creativeTitle(meta.creative),
     creative_body: creativeBody(meta.creative),
     creative_image: creativeImage(meta.creative),
     cta: creativeCta(meta.creative),
     spend,
     impressions: toNum(row?.impressions),
+    reach: toNum(row?.reach),
+    frequency: frecuenciaDe(
+      toNumOrNull(row?.frequency),
+      toNum(row?.impressions),
+      toNum(row?.reach),
+    ),
     clicks: toNum(row?.clicks),
     ctr: toNum(row?.ctr),
     cpc: row?.cpc ? toNum(row.cpc) : null,

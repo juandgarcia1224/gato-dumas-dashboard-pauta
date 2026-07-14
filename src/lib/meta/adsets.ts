@@ -44,6 +44,10 @@ export interface AdsetInsight {
   campaign_name?: string;
   spend?: string;
   impressions?: string;
+  /** Personas únicas alcanzadas en el rango. */
+  reach?: string;
+  /** Impresiones ÷ alcance del rango (promedio de veces que cada persona vio la pauta). */
+  frequency?: string;
   clicks?: string;
   ctr?: string;
   cpc?: string;
@@ -75,6 +79,8 @@ const ADSET_INSIGHT_FIELDS = [
   "campaign_name",
   "spend",
   "impressions",
+  "reach",
+  "frequency",
   "clicks",
   "ctr",
   "cpc",

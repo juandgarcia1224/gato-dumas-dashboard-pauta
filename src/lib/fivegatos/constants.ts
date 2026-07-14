@@ -152,6 +152,26 @@ export function estadoCursoLabel(estado: string): string {
   return plano.charAt(0).toUpperCase() + plano.slice(1);
 }
 
+/** Frecuencia de Meta con 1 decimal ("2,1" en es-CO), o "—" si es null. */
+export function fmtFrecuencia(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  return v.toLocaleString("es-CO", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
+  });
+}
+
+/**
+ * Clase de color para la frecuencia: neutra hasta 4, ámbar si supera 4
+ * (señal de saturación) y roja si supera 6.
+ */
+export function frecuenciaCls(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "";
+  if (v > 6) return "text-red-600 font-medium";
+  if (v > 4) return "text-amber-600 font-medium";
+  return "";
+}
+
 /** Días corridos desde `startIso` hasta ahora (mínimo 0), o null si no hay fecha. */
 export function diasCorridos(startIso: string | null | undefined): number | null {
   if (!startIso) return null;

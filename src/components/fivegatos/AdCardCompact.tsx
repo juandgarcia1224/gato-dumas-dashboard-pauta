@@ -1,6 +1,7 @@
 import type { AdStats } from "@/lib/fivegatos/data";
 import { fmtCop, fmtInt } from "@/lib/fivegatos/constants";
 import { ctaLabel } from "./ctaLabel";
+import PautaInfoChip from "./PautaInfoChip";
 
 /**
  * Versión compacta de AdCard para el acordeón de adsets: thumbnail 48px,
@@ -45,6 +46,11 @@ export default function AdCardCompact({ ad }: { ad: AdStats }) {
             </span>
           )}
           {pausado && <span className="text-gray-400">Pausado</span>}
+          <PautaInfoChip
+            variante="ad"
+            startTime={ad.created_time}
+            frequency={ad.frequency}
+          />
         </p>
         <p className="mt-1 text-xs text-gray-600 tabular-nums">
           <span className="font-semibold text-gray-900">{fmtCop(ad.spend)}</span>

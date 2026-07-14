@@ -15,7 +15,8 @@
     "pacing:recompute": "tsx scripts/recompute-pacing.ts",
     "mapping:setup": "tsx scripts/setup-mapping-sheet.ts",
     "test:mapping": "tsx --test src/lib/mapping/__tests__/courses.test.ts",
-    "test:presupuesto": "tsx --test src/lib/fivegatos/__tests__/presupuesto.test.ts"
+    "test:presupuesto": "tsx --test src/lib/fivegatos/__tests__/presupuesto.test.ts",
+    "test:pauta": "tsx --test src/lib/fivegatos/__tests__/pauta-info.test.ts"
   },
   "dependencies": {
     "googleapis": "^144.0.0",

@@ -64,6 +64,11 @@ export interface AdMeta {
   name: string;
   status?: string;
   effective_status: string;
+  /**
+   * Fecha de creación del ad (ISO con offset). Meta no reporta start_time a
+   * nivel ad: created_time es la fecha en que se lanzó el creative.
+   */
+  created_time?: string;
   creative?: AdCreativeMeta;
 }
 
@@ -73,6 +78,10 @@ export interface AdInsight {
   ad_name?: string;
   spend?: string;
   impressions?: string;
+  /** Personas únicas alcanzadas en el rango. */
+  reach?: string;
+  /** Impresiones ÷ alcance del rango (promedio de veces que cada persona vio el ad). */
+  frequency?: string;
   clicks?: string;
   ctr?: string;
   cpc?: string;
@@ -94,6 +103,7 @@ const AD_FIELDS = [
   "name",
   "status",
   "effective_status",
+  "created_time",
   // thumbnail_width/height(512): sin esto Meta devuelve un thumb de 64px.
   "creative.thumbnail_width(512).thumbnail_height(512){id,title,body,image_url,thumbnail_url,object_story_spec,call_to_action_type,asset_feed_spec{bodies,titles,call_to_action_types}}",
 ].join(",");
@@ -103,6 +113,8 @@ const AD_INSIGHT_FIELDS = [
   "ad_name",
   "spend",
   "impressions",
+  "reach",
+  "frequency",
   "clicks",
   "ctr",
   "cpc",
