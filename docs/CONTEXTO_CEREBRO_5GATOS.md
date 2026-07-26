@@ -220,6 +220,9 @@ en Vercel. Guía paso a paso en `docs/BUSINESS_MANAGER_SETUP.md` del repo.
 
 ## 10. Referencias cruzadas dentro del repo
 
+- `docs/BLUEPRINT_COMPLETO_5GATOS.md` — **DOCUMENTO TÉCNICO EXHAUSTIVO**
+  con TODA la configuración, arquitectura, decisiones, flujos, endpoints,
+  integraciones, seguridad y cómo replicar el proyecto desde cero.
 - `docs/CHECKLIST_PRODUCCION_5GATOS.md` — checklist operativo completo.
 - `docs/BUSINESS_MANAGER_SETUP.md` — cómo se creó el token permanente.
 - `docs/LOGIN_SETUP.md` — cómo se configuró OAuth Google.
